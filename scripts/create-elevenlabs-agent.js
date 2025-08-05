@@ -8,18 +8,16 @@
  */
 
 const API_KEY = 'sk_70c12500fe1bbc13c9f34cbcf34cef8f7e45d5524b88fd43';
-const ELEVENLABS_API_URL = 'https://api.elevenlabs.io/v1/convai/agents/create';
+const ELEVENLABS_API_URL = 'https://api.elevenlabs.io/v1/convai/agents';
 
 /**
  * Creates an ElevenLabs conversational agent with the specified configuration
  */
 async function createAgent() {
   const agentConfig = {
-    name: "SkillCraft Expectations Setting Coach",
-    conversation_config: {
-      agent: {
-        prompt: {
-          prompt: `You are Alex, a professional training coach specializing in setting expectations conversations. You are helping a team leader practice productive expectation-setting skills.
+    name: "Alex - SkillCraft Expectations Coach",
+    agent: {
+      prompt: `You are Alex, a professional training coach specializing in setting expectations conversations. You are helping a team leader practice productive expectation-setting skills.
 
 Your role:
 - Engage in realistic workplace scenarios where expectations need to be set
@@ -37,27 +35,24 @@ Keep conversations focused on workplace scenarios involving:
 - Planning development goals
 
 Remember: You are here to help the leader practice, so provide realistic but constructive interactions.`,
-          llm: "gemini-2.0-flash",
-          temperature: 0.3
-        },
-        language: "en"
-      },
-      tts: {
-        model_id: "eleven_turbo_v2_5",
-        voice_id: "cjVigY5qzO86Huf0OWal" // Default professional voice
-      },
-      turn_detection: {
-        type: "server_vad",
-        silence_duration_ms: 800
-      }
+      first_message: "Hi, I'm Alex, your coaching partner for expectation-setting practice. I'm here to help you work through realistic scenarios where you'll need to set clear expectations with team members. What scenario would you like to practice today?",
+      language: "en",
+      llm: "gpt-4o-mini"
+    },
+    tts: {
+      model_id: "eleven_turbo_v2_5",
+      voice_id: "cjVigY5qzO86Huf0OWal"
+    },
+    turn_detection: {
+      type: "server_vad",
+      silence_duration_ms: 800
     },
     platform_settings: {
       widget: {
         subtitle: "Practice setting expectations with AI coaching",
         description: "Voice-powered training for productive expectation-setting conversations"
       }
-    },
-    tags: ["training", "expectations", "coaching", "skillcraft"]
+    }
   };
 
   try {

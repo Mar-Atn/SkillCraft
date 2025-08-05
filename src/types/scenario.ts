@@ -22,3 +22,7 @@ export interface SelectedScenario {
   roleType: 'human' | 'ai';
   instructions: string;
 }
+
+export interface ScenarioContextProps {
+  scenario: Scenario | null;
+}

@@ -50,20 +50,11 @@ export default function PracticePage() {
                 </p>
               </div>
               
-              <div className="grid md:grid-cols-2 gap-4 mb-6">
-                <div className="bg-blue-50 rounded-lg p-4">
-                  <h4 className="font-medium text-blue-800 mb-2">Your Role (Team Lead)</h4>
-                  <p className="text-blue-700 text-sm leading-relaxed">
-                    {selectedScenario.humanInstructions.substring(0, 150)}...
-                  </p>
-                </div>
-                
-                <div className="bg-green-50 rounded-lg p-4">
-                  <h4 className="font-medium text-green-800 mb-2">AI Role (Team Member)</h4>
-                  <p className="text-green-700 text-sm leading-relaxed">
-                    {selectedScenario.aiInstructions.substring(0, 150)}...
-                  </p>
-                </div>
+              <div className="bg-blue-50 rounded-lg p-4 mb-6">
+                <h4 className="font-medium text-blue-800 mb-2">Your Role (Team Lead)</h4>
+                <p className="text-blue-700 text-sm leading-relaxed">
+                  {selectedScenario.humanInstructions.substring(0, 200)}...
+                </p>
               </div>
               
               <div className="text-center">
@@ -96,7 +87,7 @@ export default function PracticePage() {
             </div>
           )}
           
-          <VoiceConversation />
+          <VoiceConversation scenario={selectedScenario} />
           
           {selectedScenario && (
             <div className="bg-gray-50 rounded-lg p-4">

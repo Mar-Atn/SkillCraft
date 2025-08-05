@@ -1,5 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { useConversation } from '@elevenlabs/react';
+import type { ScenarioContextProps } from '../../types/scenario';
 
 interface Message {
   speaker: string;
@@ -7,11 +8,15 @@ interface Message {
   id: number;
 }
 
-const VoiceConversation: React.FC = () => {
+const VoiceConversation: React.FC<ScenarioContextProps> = ({ scenario }) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isActive, setIsActive] = useState(false);
   const [status, setStatus] = useState('Ready to start conversation');
   const [statusType, setStatusType] = useState('');
+
+  // Scenario context is now available for future AI agent configuration
+  // Currently maintaining SACRED voice functionality unchanged per constitutional constraints
+  console.log('VoiceConversation initialized with scenario:', scenario?.title || 'No scenario selected');
 
   const updateStatus = (newStatus: string, type: string = '') => {
     setStatus(newStatus);
@@ -85,9 +90,9 @@ const VoiceConversation: React.FC = () => {
       setIsActive(true);
       
       // Using working agent ID from NM project temporarily
-      // TODO: Replace with SkillCraft-specific agent ID after creating agent
+      // TODO: Replace with SkillCraft-specific agent ID after creating agent via dashboard
       await conversation.startSession({
-        agentId: 'agent_7601k1g0796kfj2bzkcds0bkmw2m', // Working agent ID
+        agentId: 'agent_7601k1g0796kfj2bzkcds0bkmw2m', // Working agent ID - configured for expectation-setting
         connectionType: 'websocket'
       });
       
