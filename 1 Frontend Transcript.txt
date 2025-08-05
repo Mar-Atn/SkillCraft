@@ -1,0 +1,212 @@
+1. Frontend Transcript Fetching Pattern
+
+  ConversationFeedback.js (lines 52-108):
+  const fetchTranscript = async (retryCount = 0) => {
+    if (!elevenLabsId) {
+      setError('No ElevenLabs conversation ID found')
+      return
+    }
+
+    setLoading(true)
+    setError(null)
+
+    try {
+      const url = `/api/voice/transcript/${elevenLabsId}`
+      const response = await fetch(url)
+      const data = await response.json()
+
+      if (data.success) {
+        const { status, transcript } = data.data
+
+        // Retry logic for processing conversations
+        if (status === 'processing' && transcript.length === 0 &&
+  retryCount < 40) {
+          const waitTime = retryCount < 10 ? 5000 : 10000  // 5s then 10s
+          setTimeout(() => {
+            fetchTranscript(retryCount + 1)
+          }, waitTime)
+          return
+        }
+
+        // Success - display transcript
+        if (status === 'done' || transcript.length > 0) {
+          setTranscript(data.data)
+          setLoading(false)
+        }
+      }
+    } catch (err) {
+      setError('Network error: ' + err.message)
+      setLoading(false)
+    }
+  }
+
+  2. Auto-Fetch on Conversation End
+
+  ConversationFeedback.js (lines 111-131):
+  useEffect(() => {
+    if (elevenLabsId) {
+      console.log('🎯 ConversationFeedback received ElevenLabs ID:',
+  elevenLabsId)
+      setLoading(true)
+      setError(null)
+      setRetryAttempt(0)
+      // Small delay to ensure UI updates
+      setTimeout(() => {
+        fetchTranscript()
+      }, 100)
+    }
+  }, [elevenLabsId])
+
+  3. Backend Transcript Fetching from ElevenLabs
+
+  voiceService.js (lines 1994-2045):
+  async fetchConversationTranscript(conversationId) {
+    if (!this.apiKey) {
+      throw new Error('ElevenLabs API key not configured')
+    }
+
+    try {
+      const axios = require('axios')
+      const url =
+  `https://api.elevenlabs.io/v1/convai/conversations/${conversationId}`
+      const headers = {
+        'xi-api-key': this.apiKey,
+        'Content-Type': 'application/json'
+      }
+
+      const response = await axios.get(url, { headers })
+      const conversationData = response.data
+
+      return {
+        conversationId,
+        status: conversationData.status,
+        transcript: conversationData.transcript || [],
+        metadata: {
+          fetchedAt: new Date().toISOString(),
+          source: 'elevenlabs',
+          messageCount: conversationData.transcript?.length || 0
+        }
+      }
+
+    } catch (error) {
+      if (error.response?.status === 404) {
+        throw new Error(`Conversation not found: ${conversationId}`)
+      } else if (error.response?.status === 401) {
+        throw new Error('Invalid ElevenLabs API key')
+      } else {
+        throw new Error(`Failed to fetch transcript: ${error.message}`)
+      }
+    }
+  }
+
+  4. Conversation End Handling with Assessment Trigger
+
+  VoiceConversation.js (lines 841-945):
+  const handleEndConversation = useCallback(async () => {
+    try {
+      console.log('🛑 Ending ElevenLabs conversation')
+      setIsActive(false)
+      setSessionState('ending')
+
+      // End ElevenLabs conversation
+      await conversation.endSession()
+
+      // Prepare conversation results with transcript
+      const conversationResults = {
+        negotiationId: negotiationId || `negotiation-${Date.now()}`,
+        elevenLabsConversationId: elevenLabsConversationId ||
+  conversation?.id,
+        transcript: finalTranscript,
+        conversationHistory: conversationHistory,
+        duration: conversationTime,
+        character: character,
+        scenario: scenario,
+        endedAt: new Date().toISOString(),
+        sessionMetrics: {
+          totalMessages: finalTranscript.length,
+          userMessages: finalTranscript.filter(t => t.speaker ===
+  'You').length,
+          aiMessages: finalTranscript.filter(t => t.speaker !==
+  'You').length,
+          hadFallbackTranscript: transcript.length === 0
+        },
+        shouldTriggerAssessment: true // Flag for automatic assessment
+      }
+
+      // Call parent with results
+      onEndConversation?.(conversationResults)
+      console.log('✅ Conversation ended - assessment flow will start')
+    } catch (error) {
+      console.error('❌ Failed to end conversation:', error)
+    }
+  }, [conversation, elevenLabsConversationId, transcript, ...])
+
+  5. Processing UI During Transcript Fetch
+
+  AssessmentProcessing.js (lines 78-93):
+  // Step 2: Fetch ElevenLabs transcript (can take 2-3 minutes)
+  setProcessingStage('transcript_fetch')
+  setProgress(15)
+  setStatusMessage('Fetching conversation transcript from ElevenLabs...')
+  setEstimatedTimeRemaining(150)
+
+  // Simulate realistic progress updates
+  for (let i = 0; i < 10; i++) {
+    await new Promise(resolve => setTimeout(resolve, 5000))
+    setProgress(15 + (i * 3))
+    setElapsedTime(prevTime => prevTime + 5)
+    setEstimatedTimeRemaining(150 - (i * 5))
+
+    if (i === 4) {
+      setStatusMessage('ElevenLabs is processing speech recognition...')
+    } else if (i === 8) {
+      setStatusMessage('Almost done processing your conversation...')
+    }
+  }
+
+  6. API Service Layer
+
+  voiceApiService.js (lines 568-591):
+  async getConversationTranscript(conversationId) {
+    try {
+      console.log(`🎵 Fetching transcript for conversation: 
+  ${conversationId}`)
+
+      const startTime = Date.now()
+      const response = await
+  apiClient.get(`/voice/transcript/${conversationId}`)
+      const latency = Date.now() - startTime
+
+      this.updateMetrics(latency, true)
+
+      console.log('✅ Conversation transcript fetched successfully', {
+        conversationId,
+        messageCount: response.data?.transcript?.length || 0,
+        latency
+      })
+
+      return response.data
+
+    } catch (error) {
+      this.updateMetrics(0, false)
+      console.error('❌ Failed to fetch conversation transcript:', error)
+      throw new Error(error.response?.data?.error || 'Failed to fetch 
+  transcript')
+    }
+  }
+
+  Key Features:
+
+  1. Automatic Retry Logic: Up to 40 retries with exponential backoff (5s →
+   10s intervals)
+  2. Status Tracking: Monitors 'processing' vs 'done' states from
+  ElevenLabs
+  3. Progress UI: Shows processing stages with time estimates
+  4. Error Handling: Network errors, 404s, authentication failures
+  5. Metadata Capture: Timestamps, message counts, source tracking
+  6. Integration Flow: Conversation end → Pass ID → Auto-fetch transcript →
+   Trigger assessment
+
+  The system handles the 2-3 minute processing delay from ElevenLabs
+  gracefully with retry logic and user feedback.
+
