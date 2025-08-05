@@ -88,7 +88,7 @@ const VoiceConversation: React.FC = () => {
       // TODO: Replace with SkillCraft-specific agent ID after creating agent
       await conversation.startSession({
         agentId: 'agent_7601k1g0796kfj2bzkcds0bkmw2m', // Working agent ID
-        apiKey: 'sk_70c12500fe1bbc13c9f34cbcf34cef8f7e45d5524b88fd43'
+        connectionType: 'websocket'
       });
       
     } catch (error: any) {
