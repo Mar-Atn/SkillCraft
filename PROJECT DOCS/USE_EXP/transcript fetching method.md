@@ -1,4 +1,4 @@
-1. Frontend Transcript Fetching Pattern
+  1. Frontend Transcript Fetching Pattern
 
   ConversationFeedback.js (lines 52-108):
   const fetchTranscript = async (retryCount = 0) => {

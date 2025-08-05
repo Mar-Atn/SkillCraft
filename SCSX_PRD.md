@@ -68,7 +68,7 @@ Help develop productive Setting Expectation skills across the company leadership
 
 ## 3. FUNCTIONAL REQUIREMENTS
 
-### 3.1 Core User Journey
+### 3.1 Core User Journey: OCCAM'S RAZOR SURGICAL DESIGN OF UX
 
 #### 3.1.1 User Registration & Onboarding
 - **Account Creation:** super simple Email-based registration with super simple standard authentication
@@ -145,9 +145,17 @@ Help develop productive Setting Expectation skills across the company leadership
 - **General Score:** Competitive negotiation effectiveness, BATNA usage, position advocacy
 - **individual Scores for each of the pre-defined criteria/sub-skill:** 
 
-#### 3.6.1 General Skill Quantitative Assessment (scoring)
+#### 3.6.2 General Skill Quantitative Assessment (scoring)
 - **Skill Scoring After Each Conversation:** 1-100 scale for general skill and separately for each criteria, provided by AI model, giving feedback after each conversation;
 - **Cumulative Skill Scoring:** - skills scores (general skill and overall skill) are adjusted after receiving each conversation scores using skill scoring methodology, similar to sports rating systems, with latest scores more impactful then the older ones.
+
+#### 3.6.3 Effective "Setting Expectations" conversation five criteria (sub-skills), against which performance and progress should be scored
+- **Clarity and Specificity of Expectations (WHAT & HOW):** Did the conversation result in clear, specific expectations regarding what the team member needs to achieve (results/outcomes) and how they are expected to act (behaviors, actions)? Were vague terms translated into actionable understanding? 
+- **Mutual Understanding and Alignment:** Was there a genuine dialogue where both the manager and the team member actively participated in defining expectations, sharing perspectives, and reaching a shared vision? Did the team member clearly understand where to focus their efforts and priorities? 
+- **Proactive Problem Solving & Support Identification:** Did the conversation proactively address potential challenges, explore growth limitations (if applicable), and discuss the support needed by the team member to meet expectations? 
+- **Appropriate Customization & Flexibility:** Was the approach to setting expectations tailored to the individual's situation, considering their professional maturity, the nature of their tasks (e.g., stable vs. rapidly changing environment), and their aspirations? Did it go beyond a rigid SMART framework when not applicable? 
+- **Documentation and Verification:** Was the outcome of the conversation clearly documented in a shared space, and was the team member asked to verify and agree upon it? 
+
 
 
 ### 3.7 User Management & Authentication
