@@ -18,6 +18,7 @@ interface FeedbackData {
   areasForImprovement: string[];
   recommendations: string[];
   overallAssessment: string;
+  rawResponse: string;
   newRating?: number;
   previousRating?: number;
   skillLevel?: string;
@@ -254,6 +255,7 @@ const VoiceConversation: React.FC<ScenarioContextProps> = ({ scenario }) => {
               areasForImprovement: feedback.areasForImprovement,
               recommendations: feedback.recommendations,
               overallAssessment: feedback.overallAssessment,
+              rawResponse: feedback.rawResponse,
               previousRating,
               newRating,
               skillLevel
@@ -269,7 +271,15 @@ const VoiceConversation: React.FC<ScenarioContextProps> = ({ scenario }) => {
             
           } catch (feedbackError: any) {
             console.error('❌ Failed to generate feedback:', feedbackError);
-            updateStatus('Feedback generation failed', 'error');
+            
+            // Check if it's a 503 overloaded error
+            if (feedbackError.message.includes('503') || feedbackError.message.includes('overloaded')) {
+              updateStatus('Gemini API is temporarily overloaded. Please try again in a few minutes.', 'error');
+              addMessage('System', 'AI feedback temporarily unavailable due to high API usage. Your conversation was recorded but no scores generated this time.');
+            } else {
+              updateStatus('Feedback generation failed', 'error');
+              addMessage('System', 'Failed to generate AI feedback. Please try again.');
+            }
           }
           
         } catch (error: any) {

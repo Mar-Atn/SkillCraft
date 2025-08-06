@@ -1,7 +1,7 @@
 // Feedback Display Component - Shows AI feedback and scores after conversation
 // Displays both conversation scores and detailed feedback
 
-import { CheckCircle, AlertCircle, TrendingUp, Target, Users, FileText, Award, Lightbulb } from 'lucide-react';
+import { CheckCircle, TrendingUp, Target, Users, FileText, Award, Lightbulb } from 'lucide-react';
 
 interface ConversationScores {
   overall_score: number;
@@ -20,6 +20,7 @@ interface FeedbackData {
   areasForImprovement: string[];
   recommendations: string[];
   overallAssessment: string;
+  rawResponse: string;
   newRating?: number;
   previousRating?: number;
   skillLevel?: string;
@@ -31,6 +32,22 @@ interface FeedbackDisplayProps {
 }
 
 export default function FeedbackDisplay({ feedback, onClose }: FeedbackDisplayProps) {
+  // Clean the feedback text by removing the JSON scores block
+  const cleanFeedbackText = (text: string): string => {
+    if (!text) return '';
+    
+    // Remove JSON code blocks (```json ... ```)
+    const withoutJsonBlocks = text.replace(/```json\s*\{[\s\S]*?\}\s*```/g, '');
+    
+    // Remove standalone JSON objects that might not be in code blocks
+    const withoutStandaloneJson = withoutJsonBlocks.replace(/\{\s*"overall_score"[\s\S]*?\}\s*\n*/g, '');
+    
+    // Clean up extra whitespace and line breaks
+    const cleaned = withoutStandaloneJson.replace(/\n\s*\n\s*\n/g, '\n\n').trim();
+    
+    return cleaned;
+  };
+
   const getScoreColor = (score: number) => {
     if (score >= 85) return 'text-green-600';
     if (score >= 70) return 'text-blue-600';
@@ -139,67 +156,18 @@ export default function FeedbackDisplay({ feedback, onClose }: FeedbackDisplayPr
             </div>
           )}
 
-          {/* Overall Assessment */}
-          {feedback.overallAssessment && (
-            <div className="bg-gray-50 rounded-lg p-4">
-              <h4 className="font-semibold text-gray-900 mb-2">Overall Assessment</h4>
-              <p className="text-gray-700">{feedback.overallAssessment}</p>
+          {/* Personal Feedback - Raw Structured Text */}
+          <div className="bg-gray-50 rounded-lg p-6 border border-gray-200">
+            <div className="flex items-center gap-3 mb-4">
+              <Lightbulb className="w-6 h-6 text-blue-600" />
+              <h4 className="text-xl font-semibold text-gray-900">Personal Feedback</h4>
             </div>
-          )}
-
-          {/* Strengths */}
-          {feedback.strengths.length > 0 && (
-            <div className="bg-green-50 rounded-lg p-4 border border-green-200">
-              <div className="flex items-center gap-2 mb-3">
-                <CheckCircle className="w-5 h-5 text-green-600" />
-                <h4 className="font-semibold text-green-900">Strengths</h4>
-              </div>
-              <ul className="space-y-2">
-                {feedback.strengths.map((strength, index) => (
-                  <li key={index} className="flex items-start gap-2">
-                    <span className="text-green-600 mt-1">•</span>
-                    <span className="text-green-800">{strength}</span>
-                  </li>
-                ))}
-              </ul>
+            <div className="prose prose-gray max-w-none">
+              <pre className="whitespace-pre-wrap text-gray-700 font-sans text-sm leading-relaxed bg-white p-4 rounded border">
+                {cleanFeedbackText(feedback.rawResponse) || 'No detailed feedback available'}
+              </pre>
             </div>
-          )}
-
-          {/* Areas for Improvement */}
-          {feedback.areasForImprovement.length > 0 && (
-            <div className="bg-amber-50 rounded-lg p-4 border border-amber-200">
-              <div className="flex items-center gap-2 mb-3">
-                <AlertCircle className="w-5 h-5 text-amber-600" />
-                <h4 className="font-semibold text-amber-900">Areas for Improvement</h4>
-              </div>
-              <ul className="space-y-2">
-                {feedback.areasForImprovement.map((area, index) => (
-                  <li key={index} className="flex items-start gap-2">
-                    <span className="text-amber-600 mt-1">•</span>
-                    <span className="text-amber-800">{area}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-
-          {/* Recommendations */}
-          {feedback.recommendations.length > 0 && (
-            <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
-              <div className="flex items-center gap-2 mb-3">
-                <Lightbulb className="w-5 h-5 text-blue-600" />
-                <h4 className="font-semibold text-blue-900">Actionable Recommendations</h4>
-              </div>
-              <ul className="space-y-2">
-                {feedback.recommendations.map((recommendation, index) => (
-                  <li key={index} className="flex items-start gap-2">
-                    <span className="text-blue-600 mt-1">{index + 1}.</span>
-                    <span className="text-blue-800">{recommendation}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
+          </div>
         </div>
 
         {/* Footer */}
