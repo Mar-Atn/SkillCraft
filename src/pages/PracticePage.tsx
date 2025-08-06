@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import VoiceConversation from '../components/voice/VoiceConversation'
 import ScenarioSelector from '../components/scenarios/ScenarioSelector'
+import MiniRatingDisplay from '../components/MiniRatingDisplay'
 import type { Scenario } from '../types/scenario'
 
 export default function PracticePage() {
@@ -24,6 +25,11 @@ export default function PracticePage() {
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
+      {/* Mini Rating Display in top-right */}
+      <div className="fixed top-4 right-4 z-10">
+        <MiniRatingDisplay />
+      </div>
+      
       <div className="text-center mb-8">
         <h1 className="text-3xl font-bold mb-2">Practice Setting Expectations</h1>
         <p className="text-slate-600">

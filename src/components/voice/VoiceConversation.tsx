@@ -4,6 +4,7 @@ import type { ScenarioContextProps } from '../../types/scenario';
 import { transcriptService } from '../../services/transcriptService';
 import { feedbackService } from '../../services/feedbackService';
 import { ratingService } from '../../services/ratingService';
+import FeedbackDisplay from '../FeedbackDisplay';
 
 interface Message {
   speaker: string;
@@ -11,12 +12,25 @@ interface Message {
   id: number;
 }
 
+interface FeedbackData {
+  scores: any;
+  strengths: string[];
+  areasForImprovement: string[];
+  recommendations: string[];
+  overallAssessment: string;
+  newRating?: number;
+  previousRating?: number;
+  skillLevel?: string;
+}
+
 const VoiceConversation: React.FC<ScenarioContextProps> = ({ scenario }) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isActive, setIsActive] = useState(false);
   const [status, setStatus] = useState('Ready to start conversation');
   const [statusType, setStatusType] = useState('');
-  const [elevenLabsConversationId, setElevenLabsConversationId] = useState<string | null>(null);;
+  const [elevenLabsConversationId, setElevenLabsConversationId] = useState<string | null>(null);
+  const [feedbackData, setFeedbackData] = useState<FeedbackData | null>(null);
+  const [showFeedback, setShowFeedback] = useState(false);
 
   // Scenario context is now available for future AI agent configuration
   // Currently maintaining SACRED voice functionality unchanged per constitutional constraints
@@ -28,7 +42,7 @@ const VoiceConversation: React.FC<ScenarioContextProps> = ({ scenario }) => {
   };
 
   const addMessage = (speaker: string, text: string) => {
-    setMessages(prev => [...prev, { speaker, text, id: Date.now() }]);
+    setMessages(prev => [...prev, { speaker, text, id: Date.now() + Math.random() }]);
   };
 
   const handleMessage = useCallback((message: any) => {
@@ -209,17 +223,44 @@ const VoiceConversation: React.FC<ScenarioContextProps> = ({ scenario }) => {
             console.log('Full feedback:', feedback.rawResponse);
             
             // SPRINT 4: Update ratings based on conversation performance
+            let previousRating: number | undefined;
+            let newRating: number | undefined;
+            let skillLevel: string | undefined;
+            
             if (feedback.scores) {
               console.log('📈 UPDATING USER RATINGS...');
-              const updatedRatings = ratingService.updateRatings(feedback.scores);
               
-              console.log('🎖️ SKILL LEVEL:', ratingService.getSkillLevel(updatedRatings.overall));
+              // Get previous rating before update
+              const currentRatings = ratingService.getUserRatings();
+              previousRating = currentRatings.overall;
+              
+              // Update ratings
+              const updatedRatings = ratingService.updateRatings(feedback.scores);
+              newRating = updatedRatings.overall;
+              skillLevel = ratingService.getSkillLevel(updatedRatings.overall);
+              
+              console.log('🎖️ SKILL LEVEL:', skillLevel);
               console.log('📊 Total Conversations:', updatedRatings.conversationsCount);
               
-              addMessage('System', `Rating updated! Overall: ${updatedRatings.overall} (${ratingService.getSkillLevel(updatedRatings.overall)})`);
+              addMessage('System', `Rating updated! Overall: ${newRating} (${skillLevel})`);
             } else {
               console.warn('⚠️ Cannot update ratings - no scores available');
             }
+            
+            // Store feedback data for display
+            setFeedbackData({
+              scores: feedback.scores,
+              strengths: feedback.strengths,
+              areasForImprovement: feedback.areasForImprovement,
+              recommendations: feedback.recommendations,
+              overallAssessment: feedback.overallAssessment,
+              previousRating,
+              newRating,
+              skillLevel
+            });
+            
+            // Show feedback display
+            setShowFeedback(true);
             
             updateStatus('AI feedback and rating update complete!', 'success');
             
@@ -297,6 +338,17 @@ const VoiceConversation: React.FC<ScenarioContextProps> = ({ scenario }) => {
           </div>
         )}
       </div>
+      
+      {/* Feedback Display Modal */}
+      {showFeedback && feedbackData && (
+        <FeedbackDisplay 
+          feedback={feedbackData} 
+          onClose={() => {
+            setShowFeedback(false);
+            setFeedbackData(null);
+          }} 
+        />
+      )}
     </div>
   );
 };

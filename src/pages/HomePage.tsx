@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import { Mic, Target, TrendingUp, Users } from 'lucide-react'
+import RatingDisplay from '../components/RatingDisplay'
 
 export default function HomePage() {
   return (
@@ -50,7 +51,12 @@ export default function HomePage() {
         </Link>
       </div>
 
-      <section className="mt-24 bg-white rounded-xl p-8 shadow-lg">
+      {/* Rating Display - Sprint 5 */}
+      <section className="mt-16">
+        <RatingDisplay />
+      </section>
+
+      <section className="mt-16 bg-white rounded-xl p-8 shadow-lg">
         <h2 className="text-3xl font-bold mb-6 text-center">How It Works</h2>
         <div className="grid md:grid-cols-4 gap-6">
           <div className="text-center">
