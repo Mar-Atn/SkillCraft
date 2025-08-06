@@ -1,6 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import { useConversation } from '@elevenlabs/react';
 import type { ScenarioContextProps } from '../../types/scenario';
+import { transcriptService } from '../../services/transcriptService';
 
 interface Message {
   speaker: string;
@@ -13,6 +14,7 @@ const VoiceConversation: React.FC<ScenarioContextProps> = ({ scenario }) => {
   const [isActive, setIsActive] = useState(false);
   const [status, setStatus] = useState('Ready to start conversation');
   const [statusType, setStatusType] = useState('');
+  const [elevenLabsConversationId, setElevenLabsConversationId] = useState<string | null>(null);
 
   // Scenario context is now available for future AI agent configuration
   // Currently maintaining SACRED voice functionality unchanged per constitutional constraints
@@ -30,9 +32,28 @@ const VoiceConversation: React.FC<ScenarioContextProps> = ({ scenario }) => {
   const handleMessage = useCallback((message: any) => {
     console.log('Received message:', message);
     
+    // Capture conversation ID from any message (NM pattern)
+    if (!elevenLabsConversationId) {
+      const possibleId = message.conversation_id || 
+                        message.conversationId || 
+                        message.id ||
+                        message.session_id ||
+                        message.sessionId;
+      
+      if (possibleId) {
+        console.log('🎯 ElevenLabs Conversation ID captured from message:', possibleId);
+        setElevenLabsConversationId(possibleId);
+      }
+    }
+    
     switch (message.type) {
       case 'conversation_initiation_metadata':
         console.log('Conversation started:', message);
+        // Try to capture ID from initiation metadata
+        if (message.conversation_id && !elevenLabsConversationId) {
+          console.log('🎯 Captured ID from initiation:', message.conversation_id);
+          setElevenLabsConversationId(message.conversation_id);
+        }
         addMessage('System', 'Conversation started - you can begin speaking');
         updateStatus('Connected - Start speaking!', 'listening');
         break;
@@ -91,10 +112,26 @@ const VoiceConversation: React.FC<ScenarioContextProps> = ({ scenario }) => {
       
       // Using working agent ID from NM project temporarily
       // TODO: Replace with SkillCraft-specific agent ID after creating agent via dashboard
-      await conversation.startSession({
+      const sessionResult = await conversation.startSession({
         agentId: 'agent_7601k1g0796kfj2bzkcds0bkmw2m', // Working agent ID - configured for expectation-setting
         connectionType: 'websocket'
       });
+      
+      // Try to capture conversation ID from session result (NM pattern)
+      if (sessionResult) {
+        const result = sessionResult as any;
+        const conversationId = result.conversationId || 
+                              result.conversation_id ||
+                              result.id ||
+                              result.sessionId ||
+                              result.session_id ||
+                              (typeof result === 'string' ? result : null);
+        
+        if (conversationId && typeof conversationId === 'string') {
+          console.log('🎯 ElevenLabs Conversation ID captured from session:', conversationId);
+          setElevenLabsConversationId(conversationId);
+        }
+      }
       
     } catch (error: any) {
       console.error('Failed to start conversation:', error);
@@ -108,6 +145,31 @@ const VoiceConversation: React.FC<ScenarioContextProps> = ({ scenario }) => {
       await conversation.endSession();
       updateStatus('Conversation stopped', '');
       setIsActive(false);
+      
+      // Fetch transcript after conversation ends (NM pattern)
+      if (elevenLabsConversationId) {
+        console.log('📝 Fetching transcript for conversation:', elevenLabsConversationId);
+        updateStatus('Fetching transcript...', 'processing');
+        
+        try {
+          const transcriptData = await transcriptService.pollTranscriptUntilReady(elevenLabsConversationId);
+          console.log('✅ TRANSCRIPT FETCHED SUCCESSFULLY!');
+          console.log('Messages:', transcriptData.transcript.length);
+          console.log('Full transcript:', transcriptService.formatTranscript(transcriptData));
+          
+          updateStatus('Transcript ready!', 'success');
+          
+          // Add transcript summary to messages
+          addMessage('System', `Transcript fetched: ${transcriptData.transcript.length} messages`);
+          
+        } catch (error: any) {
+          console.error('❌ Failed to fetch transcript:', error);
+          updateStatus('Transcript fetch failed', 'error');
+        }
+      } else {
+        console.warn('⚠️ No conversation ID available for transcript fetch');
+      }
+      
     } catch (error: any) {
       console.error('Failed to stop conversation:', error);
       updateStatus(`Failed to stop: ${error.message}`, 'error');
