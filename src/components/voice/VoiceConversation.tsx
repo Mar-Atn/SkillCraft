@@ -183,7 +183,22 @@ const VoiceConversation: React.FC<ScenarioContextProps> = ({ scenario }) => {
             console.log('🤖 Generating Gemini feedback...');
             const feedback = await feedbackService.generateFeedback(transcriptData.transcript);
             
-            console.log('🎉 GEMINI FEEDBACK GENERATED SUCCESSFULLY!');
+            console.log('🎉 GEMINI FEEDBACK WITH SCORES GENERATED SUCCESSFULLY!');
+            
+            // SPRINT 3: Display scores
+            if (feedback.scores) {
+              console.log('🎯 CONVERSATION SCORES:');
+              console.log('Overall Score:', feedback.scores.overall_score + '/100');
+              console.log('SUB-SKILL SCORES:');
+              console.log('  • Clarity & Specificity:', feedback.scores.sub_skills.clarity_and_specificity + '/100');
+              console.log('  • Mutual Understanding:', feedback.scores.sub_skills.mutual_understanding + '/100');
+              console.log('  • Proactive Problem Solving:', feedback.scores.sub_skills.proactive_problem_solving + '/100');
+              console.log('  • Appropriate Customization:', feedback.scores.sub_skills.appropriate_customization + '/100');
+              console.log('  • Documentation & Verification:', feedback.scores.sub_skills.documentation_and_verification + '/100');
+            } else {
+              console.warn('⚠️ No scores found in feedback response');
+            }
+            
             console.log('Strengths:', feedback.strengths);
             console.log('Areas for improvement:', feedback.areasForImprovement);
             console.log('Recommendations:', feedback.recommendations);

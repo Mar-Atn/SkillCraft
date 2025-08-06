@@ -29,6 +29,21 @@ Analyze the conversation transcript between a team leader (USER) and team member
 ## FEEDBACK FORMAT
 Provide feedback in this structure:
 
+**NUMERICAL SCORES:**
+First, provide scores in this exact JSON format:
+```json
+{
+  "overall_score": [1-100],
+  "sub_skills": {
+    "clarity_and_specificity": [1-100],
+    "mutual_understanding": [1-100], 
+    "proactive_problem_solving": [1-100],
+    "appropriate_customization": [1-100],
+    "documentation_and_verification": [1-100]
+  }
+}
+```
+
 **STRENGTHS:**
 - List 2-3 specific things the leader did well
 - Include direct quotes from the conversation as examples
@@ -44,6 +59,12 @@ Provide feedback in this structure:
 **OVERALL ASSESSMENT:**
 - Summarize the leader's current skill level
 - Highlight their biggest opportunity for growth
+
+## SCORING CRITERIA
+Use the scoring methodology defined in scoring_methodology.md:
+- Scale: 1-100 (1-49: Poor, 50-59: Below expectations, 60-69: Adequate, 70-79: Good, 80-89: Strong, 90-100: Exceptional)
+- 5 Sub-skills: Clarity (25%), Understanding (25%), Problem Solving (20%), Customization (15%), Documentation (15%)
+- Overall score = weighted average of sub-skills
 
 ## TONE
 - Encouraging and supportive

@@ -10,7 +10,19 @@ interface TranscriptMessage {
   timestamp?: string;
 }
 
+interface ConversationScores {
+  overall_score: number;
+  sub_skills: {
+    clarity_and_specificity: number;
+    mutual_understanding: number;
+    proactive_problem_solving: number;
+    appropriate_customization: number;
+    documentation_and_verification: number;
+  };
+}
+
 interface FeedbackResult {
+  scores: ConversationScores | null;
   strengths: string[];
   areasForImprovement: string[];
   recommendations: string[];
@@ -125,8 +137,12 @@ Provide strengths, areas for improvement, and actionable recommendations.
       console.log('✅ Gemini feedback generated successfully');
       console.log('Feedback length:', feedbackText.length, 'characters');
 
+      // Parse scores from JSON format
+      const scores = this.extractScores(feedbackText);
+
       // Parse the structured response (basic parsing)
       const result: FeedbackResult = {
+        scores: scores,
         strengths: this.extractSection(feedbackText, 'STRENGTHS'),
         areasForImprovement: this.extractSection(feedbackText, 'AREAS FOR IMPROVEMENT'),
         recommendations: this.extractSection(feedbackText, 'ACTIONABLE RECOMMENDATIONS'),
@@ -139,6 +155,43 @@ Provide strengths, areas for improvement, and actionable recommendations.
     } catch (error: any) {
       console.error('❌ Gemini feedback generation failed:', error);
       throw new Error(`Feedback generation failed: ${error.message}`);
+    }
+  }
+
+  /**
+   * Extract numerical scores from JSON format in feedback text
+   */
+  private extractScores(text: string): ConversationScores | null {
+    try {
+      // Look for JSON block in the response
+      const jsonMatch = text.match(/```json\s*(\{[\s\S]*?\})\s*```/);
+      if (!jsonMatch) {
+        // Try to find JSON without code blocks
+        const directJsonMatch = text.match(/\{[\s\S]*?"overall_score"[\s\S]*?\}/);
+        if (!directJsonMatch) {
+          console.warn('⚠️ No JSON scores found in feedback response');
+          return null;
+        }
+        return JSON.parse(directJsonMatch[0]);
+      }
+
+      const scoresData = JSON.parse(jsonMatch[1]);
+      
+      // Validate structure
+      if (!scoresData.overall_score || !scoresData.sub_skills) {
+        console.warn('⚠️ Invalid scores structure in feedback response');
+        return null;
+      }
+
+      console.log('🎯 SCORES EXTRACTED SUCCESSFULLY!');
+      console.log('Overall Score:', scoresData.overall_score);
+      console.log('Sub-skills:', scoresData.sub_skills);
+
+      return scoresData as ConversationScores;
+
+    } catch (error) {
+      console.error('❌ Failed to parse scores from feedback:', error);
+      return null;
     }
   }
 
