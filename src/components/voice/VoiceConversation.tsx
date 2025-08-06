@@ -86,7 +86,7 @@ const VoiceConversation: React.FC<ScenarioContextProps> = ({ scenario }) => {
       prompt: {
         prompt: scenario.aiInstructions
       },
-      firstMessage: `Hi! I'm ready to practice this scenario with you. ${scenario.generalContext.substring(0, 150)}...`
+      firstMessage: `Hi! How's it going?`
     }
   } : undefined;
 
