@@ -1,6 +1,5 @@
-// Rating Engine Service - Sprint 4
-// Progressive ELO-like rating system for skill development
-// Designed by system-architect agent for production use
+// Simple Average Rating Service - Sprint 4 Simplified
+// Maintains running average of all conversation scores (0-100 scale)
 
 interface UserRatings {
   overall: number;
@@ -11,13 +10,6 @@ interface UserRatings {
   documentation_and_verification: number;
   conversationsCount: number;
   lastUpdated: string;
-}
-
-interface RatingChange {
-  oldRating: number;
-  newRating: number;
-  change: number;
-  performance: number;
 }
 
 interface ConversationScores {
@@ -33,9 +25,7 @@ interface ConversationScores {
 
 export class RatingService {
   private readonly STORAGE_KEY = 'skillcraft_ratings';
-  private readonly STARTING_RATING = 1200; // Intermediate beginner level
-  private readonly MIN_RATING = 800;
-  private readonly MAX_RATING = 2400;
+  private readonly STARTING_RATING = 0; // No rating until first conversation
 
   /**
    * Get current user ratings (creates default if not exists)
@@ -50,7 +40,7 @@ export class RatingService {
       }
     }
 
-    // Create default ratings for new user
+    // Create default ratings for new user (no ratings until first conversation)
     const defaultRatings: UserRatings = {
       overall: this.STARTING_RATING,
       clarity_and_specificity: this.STARTING_RATING,
@@ -67,131 +57,72 @@ export class RatingService {
   }
 
   /**
-   * Update ratings based on conversation performance
-   * Uses modified ELO algorithm optimized for skill development
+   * Update ratings using simple averaging
+   * New Average = (Previous Average × Count + New Score) / (Count + 1)
    */
   updateRatings(conversationScores: ConversationScores): UserRatings {
     const currentRatings = this.getUserRatings();
-    console.log('🎯 UPDATING RATINGS - Current state:', currentRatings);
+    const currentCount = currentRatings.conversationsCount;
+    const newCount = currentCount + 1;
 
-    // Calculate rating changes for each skill
-    const overallChange = this.calculateRatingChange(
-      currentRatings.overall,
-      conversationScores.overall_score,
-      currentRatings.conversationsCount
-    );
+    console.log('📊 UPDATING AVERAGE RATINGS:');
+    console.log('Previous ratings:', currentRatings);
+    console.log('New scores:', conversationScores);
 
-    const clarityChange = this.calculateRatingChange(
-      currentRatings.clarity_and_specificity,
-      conversationScores.sub_skills.clarity_and_specificity,
-      currentRatings.conversationsCount
-    );
-
-    const understandingChange = this.calculateRatingChange(
-      currentRatings.mutual_understanding,
-      conversationScores.sub_skills.mutual_understanding,
-      currentRatings.conversationsCount
-    );
-
-    const problemSolvingChange = this.calculateRatingChange(
-      currentRatings.proactive_problem_solving,
-      conversationScores.sub_skills.proactive_problem_solving,
-      currentRatings.conversationsCount
-    );
-
-    const customizationChange = this.calculateRatingChange(
-      currentRatings.appropriate_customization,
-      conversationScores.sub_skills.appropriate_customization,
-      currentRatings.conversationsCount
-    );
-
-    const documentationChange = this.calculateRatingChange(
-      currentRatings.documentation_and_verification,
-      conversationScores.sub_skills.documentation_and_verification,
-      currentRatings.conversationsCount
-    );
-
-    // Apply changes with bounds checking
+    // Calculate new averages for each skill
     const newRatings: UserRatings = {
-      overall: this.clampRating(overallChange.newRating),
-      clarity_and_specificity: this.clampRating(clarityChange.newRating),
-      mutual_understanding: this.clampRating(understandingChange.newRating),
-      proactive_problem_solving: this.clampRating(problemSolvingChange.newRating),
-      appropriate_customization: this.clampRating(customizationChange.newRating),
-      documentation_and_verification: this.clampRating(documentationChange.newRating),
-      conversationsCount: currentRatings.conversationsCount + 1,
+      overall: this.calculateAverage(currentRatings.overall, currentCount, conversationScores.overall_score),
+      clarity_and_specificity: this.calculateAverage(currentRatings.clarity_and_specificity, currentCount, conversationScores.sub_skills.clarity_and_specificity),
+      mutual_understanding: this.calculateAverage(currentRatings.mutual_understanding, currentCount, conversationScores.sub_skills.mutual_understanding),
+      proactive_problem_solving: this.calculateAverage(currentRatings.proactive_problem_solving, currentCount, conversationScores.sub_skills.proactive_problem_solving),
+      appropriate_customization: this.calculateAverage(currentRatings.appropriate_customization, currentCount, conversationScores.sub_skills.appropriate_customization),
+      documentation_and_verification: this.calculateAverage(currentRatings.documentation_and_verification, currentCount, conversationScores.sub_skills.documentation_and_verification),
+      conversationsCount: newCount,
       lastUpdated: new Date().toISOString()
     };
 
-    console.log('📈 RATING CHANGES APPLIED:');
-    console.log('Overall:', overallChange.oldRating, '→', newRatings.overall, `(${overallChange.change > 0 ? '+' : ''}${overallChange.change})`);
-    console.log('Clarity:', clarityChange.oldRating, '→', newRatings.clarity_and_specificity, `(${clarityChange.change > 0 ? '+' : ''}${clarityChange.change})`);
-    console.log('Understanding:', understandingChange.oldRating, '→', newRatings.mutual_understanding, `(${understandingChange.change > 0 ? '+' : ''}${understandingChange.change})`);
-    console.log('Problem Solving:', problemSolvingChange.oldRating, '→', newRatings.proactive_problem_solving, `(${problemSolvingChange.change > 0 ? '+' : ''}${problemSolvingChange.change})`);
-    console.log('Customization:', customizationChange.oldRating, '→', newRatings.appropriate_customization, `(${customizationChange.change > 0 ? '+' : ''}${customizationChange.change})`);
-    console.log('Documentation:', documentationChange.oldRating, '→', newRatings.documentation_and_verification, `(${documentationChange.change > 0 ? '+' : ''}${documentationChange.change})`);
+    console.log('📈 NEW AVERAGE RATINGS:');
+    console.log('Overall:', currentRatings.overall.toFixed(1), '→', newRatings.overall.toFixed(1));
+    console.log('Clarity:', currentRatings.clarity_and_specificity.toFixed(1), '→', newRatings.clarity_and_specificity.toFixed(1));
+    console.log('Understanding:', currentRatings.mutual_understanding.toFixed(1), '→', newRatings.mutual_understanding.toFixed(1));
+    console.log('Problem Solving:', currentRatings.proactive_problem_solving.toFixed(1), '→', newRatings.proactive_problem_solving.toFixed(1));
+    console.log('Customization:', currentRatings.appropriate_customization.toFixed(1), '→', newRatings.appropriate_customization.toFixed(1));
+    console.log('Documentation:', currentRatings.documentation_and_verification.toFixed(1), '→', newRatings.documentation_and_verification.toFixed(1));
+    console.log('Total Conversations:', newCount);
 
     this.saveRatings(newRatings);
     return newRatings;
   }
 
   /**
-   * Calculate rating change using modified ELO algorithm
-   * Optimized for skill development with adaptive K-factor
+   * Calculate new average: (oldAvg × count + newScore) / (count + 1)
+   * For first conversation (count = 0), just return the new score
    */
-  private calculateRatingChange(currentRating: number, performanceScore: number, totalConversations: number): RatingChange {
-    // Adaptive K-factor: Higher volatility for beginners, lower for experienced
-    const kFactor = this.getKFactor(currentRating, totalConversations);
+  private calculateAverage(currentAverage: number, conversationCount: number, newScore: number): number {
+    if (conversationCount === 0) {
+      // First conversation - return the score as the starting average
+      return newScore;
+    }
     
-    // Convert 1-100 score to expected performance (0.0 to 1.0)
-    const actualScore = performanceScore / 100;
+    // Calculate running average
+    const totalPreviousPoints = currentAverage * conversationCount;
+    const newAverage = (totalPreviousPoints + newScore) / (conversationCount + 1);
     
-    // Expected score based on current rating (skill level)
-    // Higher rated players are expected to perform better
-    const expectedScore = this.getExpectedScore(currentRating);
-    
-    // Calculate rating change
-    const ratingChange = Math.round(kFactor * (actualScore - expectedScore));
-    
-    return {
-      oldRating: currentRating,
-      newRating: currentRating + ratingChange,
-      change: ratingChange,
-      performance: performanceScore
-    };
+    // Round to 1 decimal place
+    return Math.round(newAverage * 10) / 10;
   }
 
   /**
-   * Get adaptive K-factor based on rating and experience
+   * Get skill level description based on average rating (0-100 scale)
    */
-  private getKFactor(rating: number, conversationsCount: number): number {
-    // Beginners get higher volatility for faster progression
-    if (conversationsCount < 10) return 40;
-    if (rating < 1000) return 32;
-    if (rating < 1400) return 24;
-    if (rating < 1800) return 16;
-    return 8; // Experts have lower volatility
-  }
-
-  /**
-   * Calculate expected score based on current rating
-   * Lower ratings expect lower performance, higher ratings expect higher performance
-   */
-  private getExpectedScore(rating: number): number {
-    // Normalize rating to 0-1 scale, then adjust curve
-    const normalized = (rating - this.MIN_RATING) / (this.MAX_RATING - this.MIN_RATING);
-    
-    // Sigmoid curve: expects gradual improvement with diminishing returns
-    // Formula: 0.3 + 0.6 * sigmoid(normalized)
-    const sigmoid = 1 / (1 + Math.exp(-6 * (normalized - 0.5)));
-    return 0.3 + 0.6 * sigmoid;
-  }
-
-  /**
-   * Ensure ratings stay within valid bounds
-   */
-  private clampRating(rating: number): number {
-    return Math.max(this.MIN_RATING, Math.min(this.MAX_RATING, rating));
+  getSkillLevel(rating: number): string {
+    if (rating === 0) return 'Not Rated';
+    if (rating >= 90) return 'Exceptional';
+    if (rating >= 80) return 'Advanced';
+    if (rating >= 70) return 'Proficient';
+    if (rating >= 60) return 'Developing';
+    if (rating >= 50) return 'Basic';
+    return 'Needs Work';
   }
 
   /**
@@ -199,19 +130,6 @@ export class RatingService {
    */
   private saveRatings(ratings: UserRatings): void {
     localStorage.setItem(this.STORAGE_KEY, JSON.stringify(ratings));
-  }
-
-  /**
-   * Get skill level description based on rating
-   */
-  getSkillLevel(rating: number): string {
-    if (rating >= 2000) return 'Master';
-    if (rating >= 1800) return 'Expert';
-    if (rating >= 1600) return 'Advanced';
-    if (rating >= 1400) return 'Proficient';
-    if (rating >= 1200) return 'Intermediate';
-    if (rating >= 1000) return 'Developing';
-    return 'Beginner';
   }
 
   /**

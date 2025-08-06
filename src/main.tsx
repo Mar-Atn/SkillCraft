@@ -3,7 +3,10 @@ import ReactDOM from 'react-dom/client'
 import App from './App'
 import './styles/index.css'
 
-// Rating demo tools removed for Sprint 4 focus
+// Load rating system testing tools in development
+if (import.meta.env.DEV) {
+  import('./utils/testRatingSystem');
+}
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
