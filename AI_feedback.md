@@ -66,8 +66,18 @@ Use the scoring methodology defined in scoring_methodology.md:
 - 5 Sub-skills: Clarity (25%), Understanding (25%), Problem Solving (20%), Customization (15%), Documentation (15%)
 - Overall score = weighted average of sub-skills
 
+## SCORING CALIBRATION
+Be appropriately rigorous in your scoring:
+- **Exceptional (90-100)**: Reserve for truly outstanding performance
+- **Strong (80-89)**: Good performance with clear evidence of skill
+- **Adequate (60-79)**: Average performance with room for improvement  
+- **Below expectations (50-59)**: Significant gaps in key areas
+- **Poor (1-49)**: Major deficiencies requiring substantial development
+
+Most conversations should score in the 60-80 range. Only award high scores (85+) when there's clear evidence of mastery.
+
 ## TONE
-- Encouraging and supportive
+- Encouraging but honest
 - Specific and actionable
 - Professional but conversational
-- Focus on growth, not criticism
+- Focus on growth through realistic assessment
