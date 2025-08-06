@@ -2,6 +2,7 @@ import React, { useState, useCallback } from 'react';
 import { useConversation } from '@elevenlabs/react';
 import type { ScenarioContextProps } from '../../types/scenario';
 import { transcriptService } from '../../services/transcriptService';
+import { feedbackService } from '../../services/feedbackService';
 
 interface Message {
   speaker: string;
@@ -157,10 +158,32 @@ const VoiceConversation: React.FC<ScenarioContextProps> = ({ scenario }) => {
           console.log('Messages:', transcriptData.transcript.length);
           console.log('Full transcript:', transcriptService.formatTranscript(transcriptData));
           
-          updateStatus('Transcript ready!', 'success');
+          updateStatus('Generating AI feedback...', 'processing');
           
           // Add transcript summary to messages
           addMessage('System', `Transcript fetched: ${transcriptData.transcript.length} messages`);
+          
+          // SPRINT 2: Generate Gemini feedback
+          try {
+            console.log('🤖 Generating Gemini feedback...');
+            const feedback = await feedbackService.generateFeedback(transcriptData.transcript);
+            
+            console.log('🎉 GEMINI FEEDBACK GENERATED SUCCESSFULLY!');
+            console.log('Strengths:', feedback.strengths);
+            console.log('Areas for improvement:', feedback.areasForImprovement);
+            console.log('Recommendations:', feedback.recommendations);
+            console.log('Overall assessment:', feedback.overallAssessment);
+            console.log('Full feedback:', feedback.rawResponse);
+            
+            updateStatus('AI feedback ready!', 'success');
+            
+            // Add feedback summary to messages
+            addMessage('AI Coach', `Feedback generated with ${feedback.recommendations.length} recommendations`);
+            
+          } catch (feedbackError: any) {
+            console.error('❌ Failed to generate feedback:', feedbackError);
+            updateStatus('Feedback generation failed', 'error');
+          }
           
         } catch (error: any) {
           console.error('❌ Failed to fetch transcript:', error);
