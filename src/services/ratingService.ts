@@ -1,5 +1,5 @@
-// Simple Average Rating Service - Sprint 4 Simplified
-// Maintains running average of all conversation scores (0-100 scale)
+// Exponential Weighted Moving Average (EWMA) Rating Service
+// Uses EWMA with α=0.25 to give more weight to recent scores (0-100 scale)
 
 interface UserRatings {
   overall: number;
@@ -26,6 +26,7 @@ interface ConversationScores {
 export class RatingService {
   private readonly STORAGE_KEY = 'skillcraft_ratings';
   private readonly STARTING_RATING = 0; // No rating until first conversation
+  private readonly ALPHA = 0.25; // EWMA smoothing factor (25% weight to new scores)
 
   /**
    * Get current user ratings (creates default if not exists)
@@ -34,7 +35,16 @@ export class RatingService {
     const stored = localStorage.getItem(this.STORAGE_KEY);
     if (stored) {
       try {
-        return JSON.parse(stored);
+        const parsed = JSON.parse(stored);
+        
+        // Check if this is old ELO data (ratings > 100 indicate old system)
+        if (parsed.overall > 100) {
+          console.log('🔄 Detected old ELO ratings, migrating to new averaging system...');
+          this.resetRatings();
+          return this.getUserRatings(); // Recurse to get fresh defaults
+        }
+        
+        return parsed;
       } catch (error) {
         console.warn('Failed to parse stored ratings, creating defaults');
       }
@@ -57,31 +67,33 @@ export class RatingService {
   }
 
   /**
-   * Update ratings using simple averaging
-   * New Average = (Previous Average × Count + New Score) / (Count + 1)
+   * Update ratings using Exponential Weighted Moving Average (EWMA)
+   * New Average = α × New Score + (1 - α) × Previous Average
+   * Where α = 0.25 (giving 25% weight to new score, 75% to history)
+   * For first conversation (average = 0), new average = new score
    */
   updateRatings(conversationScores: ConversationScores): UserRatings {
     const currentRatings = this.getUserRatings();
     const currentCount = currentRatings.conversationsCount;
     const newCount = currentCount + 1;
 
-    console.log('📊 UPDATING AVERAGE RATINGS:');
+    console.log('📊 UPDATING RATINGS WITH EWMA (α=0.25):');
     console.log('Previous ratings:', currentRatings);
     console.log('New scores:', conversationScores);
 
-    // Calculate new averages for each skill
+    // Calculate new ratings using EWMA for each skill
     const newRatings: UserRatings = {
-      overall: this.calculateAverage(currentRatings.overall, currentCount, conversationScores.overall_score),
-      clarity_and_specificity: this.calculateAverage(currentRatings.clarity_and_specificity, currentCount, conversationScores.sub_skills.clarity_and_specificity),
-      mutual_understanding: this.calculateAverage(currentRatings.mutual_understanding, currentCount, conversationScores.sub_skills.mutual_understanding),
-      proactive_problem_solving: this.calculateAverage(currentRatings.proactive_problem_solving, currentCount, conversationScores.sub_skills.proactive_problem_solving),
-      appropriate_customization: this.calculateAverage(currentRatings.appropriate_customization, currentCount, conversationScores.sub_skills.appropriate_customization),
-      documentation_and_verification: this.calculateAverage(currentRatings.documentation_and_verification, currentCount, conversationScores.sub_skills.documentation_and_verification),
+      overall: this.calculateEWMA(currentRatings.overall, conversationScores.overall_score, currentCount),
+      clarity_and_specificity: this.calculateEWMA(currentRatings.clarity_and_specificity, conversationScores.sub_skills.clarity_and_specificity, currentCount),
+      mutual_understanding: this.calculateEWMA(currentRatings.mutual_understanding, conversationScores.sub_skills.mutual_understanding, currentCount),
+      proactive_problem_solving: this.calculateEWMA(currentRatings.proactive_problem_solving, conversationScores.sub_skills.proactive_problem_solving, currentCount),
+      appropriate_customization: this.calculateEWMA(currentRatings.appropriate_customization, conversationScores.sub_skills.appropriate_customization, currentCount),
+      documentation_and_verification: this.calculateEWMA(currentRatings.documentation_and_verification, conversationScores.sub_skills.documentation_and_verification, currentCount),
       conversationsCount: newCount,
       lastUpdated: new Date().toISOString()
     };
 
-    console.log('📈 NEW AVERAGE RATINGS:');
+    console.log('📈 NEW EWMA RATINGS:');
     console.log('Overall:', currentRatings.overall.toFixed(1), '→', newRatings.overall.toFixed(1));
     console.log('Clarity:', currentRatings.clarity_and_specificity.toFixed(1), '→', newRatings.clarity_and_specificity.toFixed(1));
     console.log('Understanding:', currentRatings.mutual_understanding.toFixed(1), '→', newRatings.mutual_understanding.toFixed(1));
@@ -95,18 +107,18 @@ export class RatingService {
   }
 
   /**
-   * Calculate new average: (oldAvg × count + newScore) / (count + 1)
-   * For first conversation (count = 0), just return the new score
+   * Calculate EWMA: α × newScore + (1 - α) × currentAverage
+   * For first conversation (count = 0 or average = 0), return the new score
+   * α = 0.25 gives 25% weight to new score, 75% to history
    */
-  private calculateAverage(currentAverage: number, conversationCount: number, newScore: number): number {
-    if (conversationCount === 0) {
-      // First conversation - return the score as the starting average
+  private calculateEWMA(currentAverage: number, newScore: number, conversationCount: number): number {
+    // First conversation or no history - return the new score
+    if (conversationCount === 0 || currentAverage === 0) {
       return newScore;
     }
     
-    // Calculate running average
-    const totalPreviousPoints = currentAverage * conversationCount;
-    const newAverage = (totalPreviousPoints + newScore) / (conversationCount + 1);
+    // Apply EWMA formula: new = α × new_score + (1 - α) × old_average
+    const newAverage = this.ALPHA * newScore + (1 - this.ALPHA) * currentAverage;
     
     // Round to 1 decimal place
     return Math.round(newAverage * 10) / 10;

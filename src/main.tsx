@@ -6,6 +6,8 @@ import './styles/index.css'
 // Load rating system testing tools in development
 if (import.meta.env.DEV) {
   import('./utils/testRatingSystem');
+  import('./utils/comprehensiveRatingTest');
+  import('./utils/testEWMA');
 }
 
 ReactDOM.createRoot(document.getElementById('root')!).render(

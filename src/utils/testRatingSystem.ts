@@ -21,29 +21,63 @@ import { ratingService } from '../services/ratingService';
     return ratings;
   },
 
-  // Test 2: Simulate beginner progression
+  // Test 2: Simulate realistic 10-conversation progression
   simulateBeginnerJourney() {
-    console.log('🌱 SIMULATING BEGINNER JOURNEY...');
+    console.log('🌱 SIMULATING REALISTIC 10-CONVERSATION JOURNEY...');
+    console.log('─'.repeat(60));
     ratingService.resetRatings();
     
-    const scores = [55, 62, 68, 74, 80, 76, 82, 85, 78, 88];
-    scores.forEach((score, i) => {
+    // Realistic scores: starts weak, gradual improvement with some variance
+    const conversations = [
+      { score: 55, desc: 'First attempt - nervous, unclear' },
+      { score: 62, desc: 'Second try - slightly better' },
+      { score: 58, desc: 'Third - had a setback' },
+      { score: 68, desc: 'Fourth - good improvement' },
+      { score: 74, desc: 'Fifth - breakthrough moment' },
+      { score: 71, desc: 'Sixth - slight regression' },
+      { score: 76, desc: 'Seventh - solid performance' },
+      { score: 82, desc: 'Eighth - great conversation!' },
+      { score: 78, desc: 'Ninth - good but not perfect' },
+      { score: 85, desc: 'Tenth - excellent finale!' }
+    ];
+    
+    console.log('Starting from: 0 (Not Rated)\n');
+    
+    let runningTotal = 0;
+    conversations.forEach((conv, i) => {
       const mockScores = {
-        overall_score: score,
+        overall_score: conv.score,
         sub_skills: {
-          clarity_and_specificity: Math.max(0, Math.min(100, score + Math.floor(Math.random() * 6 - 3))),
-          mutual_understanding: Math.max(0, Math.min(100, score + Math.floor(Math.random() * 6 - 3))),
-          proactive_problem_solving: Math.max(0, Math.min(100, score + Math.floor(Math.random() * 6 - 3))),
-          appropriate_customization: Math.max(0, Math.min(100, score + Math.floor(Math.random() * 6 - 3))),
-          documentation_and_verification: Math.max(0, Math.min(100, score + Math.floor(Math.random() * 6 - 3)))
+          clarity_and_specificity: Math.max(0, Math.min(100, conv.score + Math.floor(Math.random() * 10 - 5))),
+          mutual_understanding: Math.max(0, Math.min(100, conv.score + Math.floor(Math.random() * 10 - 5))),
+          proactive_problem_solving: Math.max(0, Math.min(100, conv.score + Math.floor(Math.random() * 10 - 5))),
+          appropriate_customization: Math.max(0, Math.min(100, conv.score + Math.floor(Math.random() * 10 - 5))),
+          documentation_and_verification: Math.max(0, Math.min(100, conv.score + Math.floor(Math.random() * 10 - 5)))
         }
       };
       
+      const before = ratingService.getUserRatings();
       const newRatings = ratingService.updateRatings(mockScores);
-      console.log(`Conv ${i+1}: Score ${score} → Avg Rating ${newRatings.overall} (${ratingService.getSkillLevel(newRatings.overall)})`);
+      runningTotal += conv.score;
+      
+      console.log(`Conv ${String(i+1).padStart(2)}: Score=${conv.score} │ Avg: ${before.overall.toFixed(1)} → ${newRatings.overall.toFixed(1)} │ ${ratingService.getSkillLevel(newRatings.overall).padEnd(11)} │ ${conv.desc}`);
+      
+      // Show calculation for first few
+      if (i < 3) {
+        console.log(`         Math: (${before.overall} × ${before.conversationsCount} + ${conv.score}) / ${i + 1} = ${newRatings.overall}`);
+      }
     });
     
-    return this.showCurrentRatings();
+    console.log('\n─'.repeat(60));
+    console.log('FINAL SUMMARY AFTER 10 CONVERSATIONS:');
+    const final = this.showCurrentRatings();
+    console.log('\n📊 Key Insights:');
+    console.log('• Started at 0 (unrated), ended at', final.overall.toFixed(1));
+    console.log('• Average improved gradually as skills developed');
+    console.log('• Some conversations better than others (realistic variance)');
+    console.log('• Final rating reflects cumulative performance over time');
+    
+    return final;
   },
 
   // Test 3: Compare first conversation vs experienced user averaging
