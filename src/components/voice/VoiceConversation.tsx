@@ -80,9 +80,24 @@ const VoiceConversation: React.FC<ScenarioContextProps> = ({ scenario }) => {
     }
   }, []);
 
+  // Create agent overrides with scenario-specific AI instructions
+  const agentOverrides = scenario ? {
+    agent: {
+      prompt: {
+        prompt: scenario.aiInstructions
+      },
+      firstMessage: `Hi! I'm ready to practice this scenario with you. ${scenario.generalContext.substring(0, 150)}...`
+    }
+  } : undefined;
+
+  // Get API key from environment
+  const apiKey = import.meta.env.VITE_ELEVENLABS_API_KEY || '';
+  
   const conversation = useConversation({
+    apiKey: apiKey,
+    overrides: agentOverrides,
     onConnect: () => {
-      console.log('Connected to ElevenLabs');
+      console.log('Connected to ElevenLabs with scenario context:', scenario?.title || 'No scenario');
       updateStatus('Connected - requesting microphone...', 'connected');
     },
     onMessage: handleMessage,
