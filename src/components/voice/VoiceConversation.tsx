@@ -3,6 +3,7 @@ import { useConversation } from '@elevenlabs/react';
 import type { ScenarioContextProps } from '../../types/scenario';
 import { transcriptService } from '../../services/transcriptService';
 import { feedbackService } from '../../services/feedbackService';
+import { ratingService } from '../../services/ratingService';
 
 interface Message {
   speaker: string;
@@ -15,7 +16,7 @@ const VoiceConversation: React.FC<ScenarioContextProps> = ({ scenario }) => {
   const [isActive, setIsActive] = useState(false);
   const [status, setStatus] = useState('Ready to start conversation');
   const [statusType, setStatusType] = useState('');
-  const [elevenLabsConversationId, setElevenLabsConversationId] = useState<string | null>(null);
+  const [elevenLabsConversationId, setElevenLabsConversationId] = useState<string | null>(null);;
 
   // Scenario context is now available for future AI agent configuration
   // Currently maintaining SACRED voice functionality unchanged per constitutional constraints
@@ -198,6 +199,8 @@ const VoiceConversation: React.FC<ScenarioContextProps> = ({ scenario }) => {
             } else {
               console.warn('⚠️ No scores found in feedback response');
             }
+
+            // Rating changes handled above in SPRINT 4 section
             
             console.log('Strengths:', feedback.strengths);
             console.log('Areas for improvement:', feedback.areasForImprovement);
@@ -205,7 +208,20 @@ const VoiceConversation: React.FC<ScenarioContextProps> = ({ scenario }) => {
             console.log('Overall assessment:', feedback.overallAssessment);
             console.log('Full feedback:', feedback.rawResponse);
             
-            updateStatus('AI feedback ready!', 'success');
+            // SPRINT 4: Update ratings based on conversation performance
+            if (feedback.scores) {
+              console.log('📈 UPDATING USER RATINGS...');
+              const updatedRatings = ratingService.updateRatings(feedback.scores);
+              
+              console.log('🎖️ SKILL LEVEL:', ratingService.getSkillLevel(updatedRatings.overall));
+              console.log('📊 Total Conversations:', updatedRatings.conversationsCount);
+              
+              addMessage('System', `Rating updated! Overall: ${updatedRatings.overall} (${ratingService.getSkillLevel(updatedRatings.overall)})`);
+            } else {
+              console.warn('⚠️ Cannot update ratings - no scores available');
+            }
+            
+            updateStatus('AI feedback and rating update complete!', 'success');
             
             // Add feedback summary to messages
             addMessage('AI Coach', `Feedback generated with ${feedback.recommendations.length} recommendations`);

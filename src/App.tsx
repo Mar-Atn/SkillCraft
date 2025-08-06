@@ -1,7 +1,7 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
 import HomePage from './pages/HomePage'
 import PracticePage from './pages/PracticePage'
-import DashboardPage from './pages/DashboardPage'
+// DashboardPage removed for Sprint 4 focus
 
 function App() {
   return (
@@ -10,7 +10,7 @@ function App() {
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/practice" element={<PracticePage />} />
-          <Route path="/dashboard" element={<DashboardPage />} />
+          {/* Dashboard route removed for Sprint 4 focus */}
         </Routes>
       </div>
     </Router>

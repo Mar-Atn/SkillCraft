@@ -44,48 +44,52 @@ export default function PracticePage() {
           {selectedScenario && (
             <div className="bg-white rounded-lg border p-6">
               <h3 className="text-lg font-semibold mb-4">Scenario Context</h3>
-              <div className="bg-gray-50 rounded-lg p-4 mb-4">
-                <p className="text-gray-700 leading-relaxed">
-                  {selectedScenario.generalContext}
-                </p>
+              <div className="space-y-4">
+                <div>
+                  <h4 className="font-medium text-gray-800 mb-2">General Context:</h4>
+                  <p className="text-gray-700">{selectedScenario.generalContext}</p>
+                </div>
+                <div>
+                  <h4 className="font-medium text-gray-800 mb-2">Your Role & Instructions:</h4>
+                  <p className="text-gray-700">{selectedScenario.humanInstructions}</p>
+                </div>
+                <div>
+                  <h4 className="font-medium text-gray-800 mb-2">Learning Objectives:</h4>
+                  <ul className="text-gray-700 space-y-1">
+                    {selectedScenario.learningObjectives.slice(0, 3).map((objective, index) => (
+                      <li key={index} className="flex items-start">
+                        <span className="text-blue-500 mr-2">•</span>
+                        {objective}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
               </div>
-              
-              <div className="bg-blue-50 rounded-lg p-4 mb-6">
-                <h4 className="font-medium text-blue-800 mb-2">Your Role (Team Lead)</h4>
-                <p className="text-blue-700 text-sm leading-relaxed">
-                  {selectedScenario.humanInstructions.substring(0, 200)}...
-                </p>
-              </div>
-              
-              <div className="text-center">
-                <button
-                  onClick={startPractice}
-                  className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-lg font-medium transition-colors"
-                >
-                  Start Voice Practice Session
-                </button>
-              </div>
+              <button 
+                onClick={startPractice}
+                className="mt-6 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium transition-colors w-full"
+              >
+                Start Practice Session
+              </button>
             </div>
           )}
         </div>
       ) : (
         <div className="space-y-6">
-          {selectedScenario && (
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="font-semibold text-blue-800">{selectedScenario.title}</h3>
-                  <p className="text-blue-600 text-sm">Practice Session Active</p>
-                </div>
-                <button
-                  onClick={backToScenarios}
-                  className="text-blue-600 hover:text-blue-800 underline text-sm"
-                >
-                  Back to Scenarios
-                </button>
+          <div className="bg-blue-50 rounded-lg p-4">
+            <div className="flex justify-between items-center">
+              <div>
+                <h3 className="font-semibold text-blue-900">Active Practice Session</h3>
+                <p className="text-blue-700 text-sm">{selectedScenario?.title}</p>
               </div>
+              <button 
+                onClick={backToScenarios}
+                className="text-blue-600 hover:text-blue-800 underline text-sm"
+              >
+                Back to Scenarios
+              </button>
             </div>
-          )}
+          </div>
           
           <VoiceConversation scenario={selectedScenario} />
           
@@ -96,7 +100,7 @@ export default function PracticePage() {
                 {selectedScenario.learningObjectives.slice(0, 3).map((objective, index) => (
                   <li key={index} className="flex items-start">
                     <span className="text-blue-500 mr-2">•</span>
-                    <span>{objective}</span>
+                    {objective}
                   </li>
                 ))}
               </ul>
