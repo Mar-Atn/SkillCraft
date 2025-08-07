@@ -1,64 +1,56 @@
-# SkillCraft
+# SkillCraft - Voice-Powered Setting Expectations Training
 
-Voice-powered training platform for team leads to practice setting expectations conversations.
+Voice-powered AI training platform for team leads to practice setting expectations conversations.
 
-## Getting Started
+## 📂 Project Structure
 
-### Prerequisites
-- Node.js 18+ 
-- npm or yarn
+```
+/SkillCraft/
+├── 📚 /docs/           # Constitutional documents & guides
+│   ├── CLAUDE.md       # Development constitution (SACRED)
+│   ├── SCSX_PRD.md     # Product requirements (SACRED)
+│   ├── STATUS.md       # Project tracking
+│   └── ...
+├── 🔍 /reference/      # Technical references & API docs
+├── 💾 /data/           # PRD-mandated data files (source of truth)
+├── 🧪 /experiments/    # Test files & prototypes
+├── 🗄️ /archive/        # Historical documents
+├── 🔒 /src/            # SACRED application code (React + TypeScript)
+├── 🌐 /public/         # Static assets & frontend-accessible data
+└── ⚙️ /scripts/        # Utility scripts
+```
 
-### Installation
+## 🚀 Quick Start
 
 ```bash
-npm install
+npm install          # Install dependencies
+npm run dev          # Start development server
+npm run build        # Build for production
+npm run typecheck    # TypeScript validation
 ```
 
-### Development
+## 🏛️ Constitutional Compliance
 
-```bash
-npm run dev
-```
+This project follows strict constitutional governance:
+- **CLAUDE.md**: Development discipline framework
+- **SCSX_PRD.md**: Product requirements authority 
+- **SACRED Components**: Protected core functionality
 
-Open [http://localhost:3000](http://localhost:3000) to view the application.
+## 🎯 Current Status
 
-### Available Scripts
+- **Phase**: End-to-End Integration Complete (85% progress)
+- **Next**: Sprint 1 - Core Voice Loop
+- **Dev Server**: http://localhost:3001
+- **Practice Page**: http://localhost:3001/practice
 
-- `npm run dev` - Start development server
-- `npm run build` - Build for production
-- `npm run preview` - Preview production build
-- `npm run test` - Run tests
-- `npm run lint` - Run ESLint
-- `npm run typecheck` - Check TypeScript types
-- `npm run format` - Format code with Prettier
+## 📊 Key Features
 
-## Tech Stack
+- ✅ Voice conversation with ElevenLabs integration
+- ✅ 3 realistic setting expectations scenarios (Level 1, 3, 5)
+- ✅ AI feedback with quantitative scoring
+- ✅ Progressive skill rating system (EWMA-based)
+- ✅ Real-time transcript fetching and analysis
 
-- React 18 with TypeScript
-- Vite for build tooling
-- Tailwind CSS for styling
-- ElevenLabs SDK for voice synthesis
-- Zustand for state management
-- React Router for navigation
+---
 
-## Project Structure
-
-```
-src/
-├── components/     # Reusable UI components
-├── pages/         # Page components
-├── services/      # API and external services
-├── hooks/         # Custom React hooks
-├── utils/         # Utility functions
-├── types/         # TypeScript type definitions
-└── styles/        # Global styles
-```
-
-## Documentation
-
-- [Project Plan](./PROJECT_PLAN.md) - Detailed roadmap and milestones
-- [Status](./STATUS.md) - Current development status
-
-## License
-
-MIT
+*Constitutionally organized and professionally structured for enterprise deployment.*

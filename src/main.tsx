@@ -3,12 +3,11 @@ import ReactDOM from 'react-dom/client'
 import App from './App'
 import './styles/index.css'
 
-// Load rating system testing tools in development
-if (import.meta.env.DEV) {
-  import('./utils/testRatingSystem');
-  import('./utils/comprehensiveRatingTest');
-  import('./utils/testEWMA');
-}
+// Rating system testing tools moved to /experiments/rating-tests/
+// Uncomment for development testing if needed:
+// if (import.meta.env.DEV) {
+//   console.log('Rating system tests available in /experiments/rating-tests/');
+// }
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
