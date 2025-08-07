@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ElevenLabs Voice Conversation Test</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 2rem;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .container {
+            background: white;
+            border-radius: 20px;
+            padding: 2rem;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+        .status {
+            background: #f8f9fa;
+            border: 2px solid #e9ecef;
+            border-radius: 12px;
+            padding: 1rem;
+            margin: 1rem 0;
+            font-weight: 500;
+            text-align: center;
+        }
+        .status.connected { background: #d4edda; border-color: #c3e6cb; color: #155724; }
+        .status.listening { background: #fff3cd; border-color: #ffeaa7; color: #856404; }
+        .status.speaking { background: #d1ecf1; border-color: #b6d4db; color: #0c5460; }
+        .status.error { background: #f8d7da; border-color: #f5c6cb; color: #721c24; }
+        
+        .controls {
+            text-align: center;
+            margin: 2rem 0;
+            gap: 1rem;
+            display: flex;
+            justify-content: center;
+        }
+        
+        .btn {
+            background: #28a745;
+            color: white;
+            border: none;
+            padding: 1rem 2rem;
+            border-radius: 50px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .btn:hover:not(:disabled) {
+            background: #218838;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3);
+        }
+        
+        .btn:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+        }
+        
+        .btn.stop {
+            background: #dc3545;
+        }
+        
+        .btn.stop:hover:not(:disabled) {
+            background: #c82333;
+        }
+        
+        .transcript {
+            max-height: 400px;
+            overflow-y: auto;
+            margin-top: 2rem;
+            border-top: 2px solid #e9ecef;
+            padding-top: 1rem;
+        }
+        
+        .message {
+            margin: 0.5rem 0;
+            padding: 0.75rem 1rem;
+            border-radius: 18px;
+            max-width: 85%;
+            word-wrap: break-word;
+        }
+        
+        .message.user {
+            background: #007bff;
+            color: white;
+            margin-left: auto;
+            text-align: right;
+        }
+        
+        .message.ai {
+            background: #f8f9fa;
+            color: #333;
+            border: 1px solid #e9ecef;
+        }
+        
+        .speaker {
+            font-weight: 600;
+            font-size: 0.9rem;
+            opacity: 0.8;
+            margin-bottom: 0.25rem;
+        }
+        
+        .agent-info {
+            background: #e7f3ff;
+            border: 1px solid #b3d9ff;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 2rem;
+        }
+        
+        .agent-info h3 {
+            margin: 0 0 0.5rem 0;
+            color: #0066cc;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎤 SkillCraft Agent Voice Test</h1>
+        
+        <div class="agent-info">
+            <h3>Agent: Marcus Rodrigues</h3>
+            <p><strong>ID:</strong> agent_2901k20mwh73e43bcmc514mppchb</p>
+            <p><strong>Status:</strong> Ready for voice conversation</p>
+        </div>
+        
+        <div id="status" class="status">
+            Ready to start - click "Start Conversation" to begin
+        </div>
+        
+        <div class="controls">
+            <button id="startBtn" class="btn">🎤 Start Conversation</button>
+            <button id="stopBtn" class="btn stop" disabled>⏹️ Stop</button>
+        </div>
+        
+        <div id="transcript" class="transcript">
+            <div class="message ai">
+                <div class="speaker">System</div>
+                <div>Click "Start Conversation" to begin voice chat with Marcus Rodrigues. You'll need to allow microphone access.</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Configuration
+        const CONFIG = {
+            agentId: 'agent_2901k20mwh73e43bcmc514mppchb',
+            apiKey: 'sk_70c12500fe1bbc13c9f34cbcf34cef8f7e45d5524b88fd43'
+        };
+
+        // DOM elements
+        const statusEl = document.getElementById('status');
+        const startBtn = document.getElementById('startBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const transcriptEl = document.getElementById('transcript');
+
+        let isActive = false;
+        let websocket = null;
+
+        // Update status display
+        function updateStatus(message, type = '') {
+            statusEl.textContent = message;
+            statusEl.className = `status ${type}`;
+        }
+
+        // Add message to transcript
+        function addMessage(speaker, text) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${speaker.toLowerCase() === 'you' ? 'user' : 'ai'}`;
+            
+            const speakerDiv = document.createElement('div');
+            speakerDiv.className = 'speaker';
+            speakerDiv.textContent = speaker;
+            
+            const textDiv = document.createElement('div');
+            textDiv.textContent = text;
+            
+            messageDiv.appendChild(speakerDiv);
+            messageDiv.appendChild(textDiv);
+            transcriptEl.appendChild(messageDiv);
+            
+            // Auto-scroll to bottom
+            transcriptEl.scrollTop = transcriptEl.scrollHeight;
+        }
+
+        // Start conversation using WebSocket (simplified example)
+        async function startConversation() {
+            try {
+                updateStatus('Connecting to ElevenLabs...', 'connecting');
+                isActive = true;
+                startBtn.disabled = true;
+                stopBtn.disabled = false;
+
+                // This is a simplified example - actual WebSocket implementation
+                // would require the ElevenLabs SDK or proper WebSocket handling
+                updateStatus('Ready for conversation! (This is a demo - use ElevenLabs SDK for real implementation)', 'connected');
+                
+                addMessage('System', 'Voice conversation simulation started. In a real implementation, you would now be connected to Marcus Rodrigues via WebSocket.');
+                
+                // Simulate some conversation flow
+                setTimeout(() => {
+                    addMessage('Marcus', 'Hello! I\'m Marcus Rodrigues. How can I help you today?');
+                    updateStatus('Listening for your response...', 'listening');
+                }, 2000);
+
+            } catch (error) {
+                console.error('Failed to start conversation:', error);
+                updateStatus(`Failed to start: ${error.message}`, 'error');
+                resetUI();
+            }
+        }
+
+        // Stop conversation
+        function stopConversation() {
+            if (websocket) {
+                websocket.close();
+                websocket = null;
+            }
+            
+            updateStatus('Conversation stopped', '');
+            addMessage('System', 'Conversation ended.');
+            resetUI();
+        }
+
+        // Reset UI state
+        function resetUI() {
+            isActive = false;
+            startBtn.disabled = false;
+            stopBtn.disabled = true;
+        }
+
+        // Event listeners
+        startBtn.addEventListener('click', startConversation);
+        stopBtn.addEventListener('click', stopConversation);
+
+        // Show initial ready state
+        console.log('SkillCraft Voice Test initialized');
+        console.log('Agent ID:', CONFIG.agentId);
+        console.log('For real voice conversation, integrate with @elevenlabs/react SDK');
+    </script>
+</body>
+</html>
