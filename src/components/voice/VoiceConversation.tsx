@@ -315,24 +315,54 @@ const VoiceConversation: React.FC<ScenarioContextProps> = ({ scenario }) => {
               console.log('Overall Score:', feedback.scores.overall_score);
               console.log('Sub-skills:', feedback.scores.sub_skills);
               
-              // Display feedback
-              addMessage('System', '--- PERSONALIZED FEEDBACK ---');
-              addMessage('System', `🎯 Overall Score: ${feedback.scores.overall_score}/100`);
-              
-              if (feedback.strengths.length > 0) {
-                addMessage('System', '✅ Strengths: ' + feedback.strengths.join(', '));
+              // Calculate rating update using EWMA
+              if (user) {
+                const ratingService = await import('../../services/ratingService').then(m => m.ratingService);
+                const ratingUpdate = await ratingService.updateRating(user.id, feedback.scores);
+                
+                // Prepare feedback data with rating info
+                const feedbackWithRating: FeedbackData = {
+                  ...feedback,
+                  newRating: ratingUpdate.newRatings.overall,
+                  previousRating: ratingUpdate.previousRatings.overall,
+                  skillLevel: ratingUpdate.skillLevel
+                };
+                
+                // Save conversation with feedback
+                if (conversationId) {
+                  const conversationFeedback: ConversationFeedback = {
+                    overallScore: feedback.scores.overall_score,
+                    subSkills: feedback.scores.sub_skills,
+                    strengths: feedback.strengths,
+                    areasForImprovement: feedback.areasForImprovement,
+                    recommendations: feedback.recommendations,
+                    rawFeedback: feedback.rawResponse
+                  };
+                  
+                  userDataService.saveConversationFeedback(conversationId, conversationFeedback);
+                  
+                  // Update conversation status
+                  const conversations = userDataService.getUserConversations(user.id);
+                  const conversation = conversations.find(c => c.id === conversationId);
+                  if (conversation) {
+                    conversation.status = 'completed';
+                    conversation.completedAt = new Date();
+                    userDataService.saveConversation(conversation);
+                  }
+                }
+                
+                // Set feedback data and show modal
+                setFeedbackData(feedbackWithRating);
+                setShowFeedback(true);
+                updateStatus('Conversation complete! Review your feedback.', 'success');
+              } else {
+                // No user logged in, just show feedback without rating
+                setFeedbackData(feedback);
+                setShowFeedback(true);
+                updateStatus('Conversation complete! Review your feedback.', 'success');
               }
-              if (feedback.areasForImprovement.length > 0) {
-                addMessage('System', '📈 Areas for improvement: ' + feedback.areasForImprovement.join(', '));
-              }
-              if (feedback.recommendations.length > 0) {
-                addMessage('System', '💡 Recommendations: ' + feedback.recommendations.join(', '));
-              }
-              
-              updateStatus('Feedback complete!', 'success');
             } else {
               console.warn('⚠️ No scores in feedback');
-              addMessage('System', 'Feedback generated but no scores available');
               updateStatus('Conversation complete', 'success');
             }
             
