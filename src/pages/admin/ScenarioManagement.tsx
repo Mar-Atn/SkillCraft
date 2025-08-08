@@ -20,6 +20,7 @@ import {
 import { useAuth } from '../../context/AuthContext';
 import { scenarioService } from '../../services/scenarioService';
 import { scenarioFileService } from '../../services/scenarioFileService';
+import { scenarioCharacterService } from '../../services/scenarioCharacterService';
 import { characterService, type Character } from '../../services/characterService';
 import UserHeader from '../../components/layout/UserHeader';
 import type { Scenario } from '../../types/scenario';
@@ -204,6 +205,22 @@ export default function ScenarioManagement() {
       
       // BRIDGE: Save to persistent storage via scenarioFileService
       await scenarioFileService.saveScenarios(updatedScenarios);
+      
+      // CRITICAL FIX: Save character assignment separately
+      if (editingScenario.assignedCharacterId && editingScenario.assignedCharacterName) {
+        console.log('💾 Saving character assignment separately:', {
+          scenarioId: editingScenario.id || editingScenario.title,
+          characterId: editingScenario.assignedCharacterId,
+          characterName: editingScenario.assignedCharacterName
+        });
+        
+        const scenarioId = isCreating ? newScenarioId : editingScenario.id!;
+        scenarioCharacterService.saveAssignment(
+          scenarioId, 
+          editingScenario.assignedCharacterId, 
+          editingScenario.assignedCharacterName
+        );
+      }
       
       // Invalidate cache so dashboard sees new scenarios immediately
       scenarioFileService.invalidateScenarioCache();

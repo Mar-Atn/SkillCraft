@@ -113,7 +113,7 @@ const VoiceConversation: React.FC<ScenarioContextProps> = ({ scenario }) => {
   };
 
   const handleMessage = useCallback((message: any) => {
-    console.log('Received message:', message);
+    console.log('📥 Received ElevenLabs message:', message);
     
     // Capture conversation ID from any message (NM pattern)
     if (!elevenLabsConversationId) {
@@ -129,104 +129,114 @@ const VoiceConversation: React.FC<ScenarioContextProps> = ({ scenario }) => {
       }
     }
     
+    // Following NM message handling pattern
     switch (message.type) {
       case 'conversation_initiation_metadata':
-        console.log('Conversation started:', message);
-        // Try to capture ID from initiation metadata
-        if (message.conversation_id && !elevenLabsConversationId) {
-          console.log('🎯 Captured ID from initiation:', message.conversation_id);
-          setElevenLabsConversationId(message.conversation_id);
-        }
-        addMessage('System', 'Conversation started - you can begin speaking');
+        console.log('🎉 ElevenLabs conversation started:', message);
+        addMessage('System', `Connected to ${assignedCharacter?.name || 'AI Character'} - you can begin speaking`);
         updateStatus('Connected - Start speaking!', 'listening');
         break;
         
+      // Also handle if it comes in the debug messages
+      case 'conversation_initiation_client_data':
+        console.log('🎉 ElevenLabs conversation client data received:', message);
+        // Check if this contains the actual initiation metadata
+        if (message.message && message.message.type === 'conversation_initiation_metadata') {
+          console.log('🎉 Found conversation initiation in client data!');
+          addMessage('System', `Connected to ${assignedCharacter?.name || 'AI Character'} - you can begin speaking`);
+          updateStatus('Connected - Start speaking!', 'listening');
+        }
+        break;
+        
       case 'user_transcript':
-        if (message.user_transcript?.trim()) {
+        if (message.user_transcript && message.user_transcript.trim()) {
+          console.log('👤 User transcript:', message.user_transcript);
           addMessage('You', message.user_transcript);
+          updateStatus('Processing...', 'processing');
         }
         break;
         
       case 'agent_response':
-        if (message.agent_response?.trim()) {
-          // Use character name if available, otherwise use generic 'AI Assistant'
+        if (message.agent_response && message.agent_response.trim()) {
+          console.log('🤖 AI response:', message.agent_response);
           const speakerName = assignedCharacter?.name || 'AI Assistant';
           addMessage(speakerName, message.agent_response);
+          updateStatus('AI is speaking...', 'speaking');
+        }
+        break;
+        
+      // Additional message types from NM
+      case 'user_speech_complete':
+      case 'speech_complete':
+        if (message.transcript && message.transcript.trim()) {
+          console.log('👤 User speech complete:', message.transcript);
+          addMessage('You', message.transcript);
+        }
+        break;
+        
+      case 'agent_speech_complete':
+      case 'response_complete':
+        if (message.text && message.text.trim()) {
+          console.log('🤖 Agent speech complete:', message.text);
+          const speakerName = assignedCharacter?.name || 'AI Assistant';
+          addMessage(speakerName, message.text);
         }
         break;
         
       case 'audio_event':
+        console.log('🔊 Audio event received');
         updateStatus('AI is speaking...', 'speaking');
+        // Audio handled automatically by SDK
+        setTimeout(() => {
+          updateStatus('Listening...', 'listening');
+        }, 1500); // Give time for audio to play
         break;
         
       default:
-        console.log('Unknown message type:', message.type);
+        console.log('❓ Unknown message type:', message.type, message);
     }
-  }, []);
+  }, [assignedCharacter?.name, elevenLabsConversationId]);
 
-  // Create comprehensive context prompt combining character and scenario
-  const createContextPrompt = () => {
-    if (!scenario) return undefined;
-    
-    const contextParts = [];
-    
-    // Character identity and context
-    if (assignedCharacter) {
-      contextParts.push(`You are ${assignedCharacter.name}.`);
-      if (assignedCharacter.personalContext) {
-        contextParts.push(assignedCharacter.personalContext);
-      }
-    }
-    
-    // Scenario context
-    if (scenario.generalContext) {
-      contextParts.push(`\nScenario: ${scenario.generalContext}`);
-    }
-    
-    // AI-specific instructions
-    if (scenario.aiInstructions) {
-      contextParts.push(`\nYour instructions: ${scenario.aiInstructions}`);
-    }
-    
-    return contextParts.join('\n\n').trim();
-  };
-
-  // Create agent overrides with complete context
+  // Create agent overrides with scenario-specific AI instructions
   const agentOverrides = scenario ? {
     agent: {
       prompt: {
-        prompt: createContextPrompt() || scenario.aiInstructions
+        prompt: scenario.aiInstructions
       },
-      firstMessage: assignedCharacter ? 
-        `Hi! I'm ${assignedCharacter.name}. How's it going?` : 
-        `Hi! How's it going?`
+      firstMessage: `Hi! How's it going?`
     }
   } : undefined;
 
   // Get API key from environment
   const apiKey = import.meta.env.VITE_ELEVENLABS_API_KEY || '';
   
-  // Memoize conversation configuration to prevent unnecessary re-renders
-  const conversationConfig = React.useMemo(() => ({
-    overrides: agentOverrides,
+  // Following NM pattern: explicit API key in useConversation with onDebug
+  const conversation = useConversation({
+    apiKey: apiKey,
     onConnect: () => {
       console.log('Connected to ElevenLabs');
       updateStatus('Connected - Start speaking!', 'connected');
     },
-    onDisconnect: () => {
-      console.log('Disconnected from ElevenLabs');
-      updateStatus('Disconnected', '');
-      setIsActive(false);
+    onMessage: handleMessage,
+    onAudio: (audio: any) => {
+      console.log('Audio received:', audio);
+      // Audio playback is handled automatically by the SDK
+    },
+    onDebug: (debug: any) => {
+      console.log('ElevenLabs debug:', debug);
+      // Handle debug messages from SDK
     },
     onError: (error: any) => {
       console.error('ElevenLabs error:', error);
       updateStatus(`Error: ${error.message}`, 'error');
       setIsActive(false);
     },
-    onMessage: handleMessage
-  }), [agentOverrides, handleMessage]);
-
-  const conversation = useConversation(conversationConfig);
+    onDisconnect: () => {
+      console.log('Disconnected from ElevenLabs');
+      updateStatus('Disconnected', '');
+      setIsActive(false);
+    }
+  });
 
   const start = async () => {
     try {
@@ -265,30 +275,79 @@ const VoiceConversation: React.FC<ScenarioContextProps> = ({ scenario }) => {
         console.log('💾 Conversation record created:', newConversationId);
       }
       
-      // Use character's assigned ElevenLabs agent ID if available
+      // Now that agents accept overrides, use character-specific agent IDs
       const agentId = assignedCharacter?.elevenLabsAgentId || 'agent_7601k1g0796kfj2bzkcds0bkmw2m';
       
-      console.log('🚀 Starting conversation with agent:', {
-        agentId,
-        characterName: assignedCharacter?.name || 'Default',
-        agentName: assignedCharacter?.elevenLabsAgentName || 'NM Fallback Agent'
-      });
+      console.log('🎭 Using agent ID:', agentId, 'for character:', assignedCharacter?.name);
+      console.log('🚀 Starting conversation with scenario context');
       
-      // Debug log the complete context being sent
-      if (agentOverrides) {
-        console.log('🎭 Agent context override:', {
-          promptLength: agentOverrides.agent?.prompt?.prompt?.length || 0,
-          promptPreview: agentOverrides.agent?.prompt?.prompt?.substring(0, 200) + '...',
-          firstMessage: agentOverrides.agent?.firstMessage
-        });
-      } else {
-        console.log('⚠️ No agent overrides - using default agent behavior');
-      }
+      // FOLLOWING NM METHOD: Build comprehensive prompt client-side
+      const buildComprehensivePrompt = () => {
+        if (!assignedCharacter || !scenario) return null;
+        
+        // Part 1: Character traits from character data
+        const characterTraits = `You are ${assignedCharacter.name}.
+${assignedCharacter.personalContext}
+
+CHARACTER DESCRIPTION:
+${assignedCharacter.characterDescription}
+
+PERSONALITY AND APPROACH:
+${assignedCharacter.personalContext}`;
+
+        // Part 2: Case-specific instructions from scenario
+        const caseSpecificInstructions = `
+CURRENT SCENARIO CONTEXT:
+${scenario.aiInstructions}
+
+SCENARIO TITLE: ${scenario.title}
+LEARNING OBJECTIVES: ${scenario.learningObjectives?.join(', ')}
+FOCUS POINTS: ${scenario.focusPoints?.join(', ')}`;
+
+        // Part 3: Core behavioral guidelines (like NM)
+        const behavioralGuidelines = `
+CORE BEHAVIORS:
+- Stay completely in character throughout the conversation
+- Respond naturally as if in a real business conversation, not a training simulation
+- Use the speech patterns and personality traits described above
+- Keep responses conversational and appropriate for voice interaction (aim for 1-3 sentences per response)
+- Focus on the scenario at hand and respond authentically to what the user says
+- Create realistic workplace dynamics appropriate to your character
+- Don't break character or mention that you're an AI or in a simulation`;
+
+        return `${characterTraits}\n\n${caseSpecificInstructions}\n\n${behavioralGuidelines}`;
+      };
+
+      const comprehensivePrompt = buildComprehensivePrompt();
       
-      const sessionResult = await conversation.startSession({
+      const sessionConfig = {
         agentId: agentId,
-        connectionType: 'webrtc'  // Using webrtc as per TESTS proven pattern
+        connectionType: 'webrtc',
+        overrides: comprehensivePrompt ? {
+          agent: {
+            prompt: {
+              prompt: comprehensivePrompt
+            }
+          }
+        } : undefined
+      };
+      
+      console.log('Session config:', {
+        agentId: sessionConfig.agentId,
+        connectionType: sessionConfig.connectionType,
+        hasOverrides: !!sessionConfig.overrides,
+        promptLength: comprehensivePrompt?.length || 0,
+        note: 'Following NM method with comprehensive client-side prompt'
       });
+      
+      const sessionResult = await conversation.startSession(sessionConfig);
+      
+      // Set a timeout to show ready message if initiation metadata doesn't come
+      setTimeout(() => {
+        console.log('🕐 Timeout reached, showing ready message as fallback');
+        addMessage('System', `Connected to ${assignedCharacter?.name || 'AI Character'} - you can begin speaking`);
+        updateStatus('Ready - Start speaking!', 'listening');
+      }, 3000);
       
       // Try to capture conversation ID from session result (NM pattern)
       if (sessionResult) {
@@ -392,18 +451,27 @@ const VoiceConversation: React.FC<ScenarioContextProps> = ({ scenario }) => {
               // Save conversation with feedback
               if (conversationId && user) {
                 const conversationFeedback: ConversationFeedback = {
-                  overallScore: feedback.scores.overall_score,
-                  subSkills: feedback.scores.sub_skills,
-                    strengths: feedback.strengths,
-                    areasForImprovement: feedback.areasForImprovement,
-                    recommendations: feedback.recommendations,
-                    rawFeedback: feedback.rawResponse
-                  };
+                  id: userDataService.generateId(),
+                  conversationId: conversationId,
+                  userId: user.id,
+                  scenarioId: scenario?.id?.toString() || 'unknown',
+                  overall_score: feedback.scores.overall_score,
+                  clarity_and_specificity: feedback.scores.sub_skills?.clarity_and_specificity || 0,
+                  mutual_understanding: feedback.scores.sub_skills?.mutual_understanding || 0,
+                  proactive_problem_solving: feedback.scores.sub_skills?.proactive_problem_solving || 0,
+                  appropriate_customization: feedback.scores.sub_skills?.appropriate_customization || 0,
+                  documentation_and_verification: feedback.scores.sub_skills?.documentation_and_verification || 0,
+                  strengths: feedback.strengths,
+                  areasForImprovement: feedback.areasForImprovement,
+                  recommendations: feedback.recommendations,
+                  rawFeedback: feedback.rawResponse,
+                  created_at: new Date()
+                };
                   
-                userDataService.saveConversationFeedback(conversationId, conversationFeedback);
+                userDataService.saveFeedback(conversationFeedback);
                 
                 // Update conversation status
-                const conversations = userDataService.getUserConversations(user.id);
+                const conversations = userDataService.getConversations(user.id);
                 const conversation = conversations.find(c => c.id === conversationId);
                 if (conversation) {
                   conversation.status = 'completed';
@@ -428,7 +496,96 @@ const VoiceConversation: React.FC<ScenarioContextProps> = ({ scenario }) => {
           
         } catch (transcriptError: any) {
           console.error('❌ Transcript fetching failed:', transcriptError);
-          updateStatus('Conversation complete (error loading feedback)', 'warning');
+          
+          // FALLBACK: Use local messages if transcript fetch fails but we have messages
+          if (messages.length > 1) { // More than just system messages
+            console.log('🔄 Fallback: Using local messages for feedback generation');
+            
+            // Convert local messages to transcript format
+            const fallbackTranscript = messages
+              .filter(msg => msg.speaker !== 'System')
+              .map(msg => ({
+                role: msg.speaker === 'You' ? 'user' : 'assistant',
+                message: msg.text,
+                timestamp: new Date().toISOString()
+              }));
+              
+            if (fallbackTranscript.length > 0) {
+              console.log('🤖 Generating feedback from local messages...');
+              updateStatus('Generating feedback from conversation...', 'processing');
+              
+              try {
+                const feedback = await feedbackService.generateFeedback(fallbackTranscript);
+                
+                if (feedback.scores) {
+                  console.log('🎯 FEEDBACK GENERATED FROM FALLBACK!');
+                  // Same feedback processing as successful transcript...
+                  let previousRating: number | undefined;
+                  let newRating: number | undefined;
+                  let skillLevel: string | undefined;
+                  
+                  if (user) {
+                    const currentRatings = ratingService.getUserRatings();
+                    previousRating = currentRatings.overall;
+                    const updatedRatings = ratingService.updateRatings(feedback.scores);
+                    newRating = updatedRatings.overall;
+                    skillLevel = ratingService.getSkillLevel(updatedRatings.overall);
+                  }
+                  
+                  const feedbackWithRating: FeedbackData = {
+                    ...feedback,
+                    newRating,
+                    previousRating,
+                    skillLevel
+                  };
+                  
+                  // Save feedback from fallback too
+                  if (conversationId && user) {
+                    const conversationFeedback: ConversationFeedback = {
+                      id: userDataService.generateId(),
+                      conversationId: conversationId,
+                      userId: user.id,
+                      scenarioId: scenario?.id?.toString() || 'unknown',
+                      overall_score: feedback.scores.overall_score,
+                      clarity_and_specificity: feedback.scores.sub_skills?.clarity_and_specificity || 0,
+                      mutual_understanding: feedback.scores.sub_skills?.mutual_understanding || 0,
+                      proactive_problem_solving: feedback.scores.sub_skills?.proactive_problem_solving || 0,
+                      appropriate_customization: feedback.scores.sub_skills?.appropriate_customization || 0,
+                      documentation_and_verification: feedback.scores.sub_skills?.documentation_and_verification || 0,
+                      strengths: feedback.strengths,
+                      areasForImprovement: feedback.areasForImprovement,
+                      recommendations: feedback.recommendations,
+                      rawFeedback: feedback.rawResponse,
+                      created_at: new Date()
+                    };
+                      
+                    userDataService.saveFeedback(conversationFeedback);
+                    
+                    // Update conversation status  
+                    const conversations = userDataService.getConversations(user.id);
+                    const conversation = conversations.find(c => c.id === conversationId);
+                    if (conversation) {
+                      conversation.status = 'completed';
+                      conversation.completedAt = new Date();
+                      userDataService.saveConversation(conversation);
+                    }
+                  }
+                  
+                  setFeedbackData(feedbackWithRating);
+                  setShowFeedback(true);
+                  updateStatus('Feedback ready!', 'success');
+                  
+                } else {
+                  updateStatus('Conversation complete (no feedback scores)', 'warning');
+                }
+              } catch (feedbackError) {
+                console.error('❌ Fallback feedback generation failed:', feedbackError);
+                updateStatus('Conversation complete (feedback error)', 'warning');
+              }
+            }
+          } else {
+            updateStatus('Conversation complete (error loading feedback)', 'warning');
+          }
         }
       } else {
         console.warn('⚠️ No conversation ID available for transcript');

@@ -127,7 +127,7 @@ class ScenarioService {
 
   /**
    * Get all available scenarios
-   * BRIDGE: Combines file-based scenarios with admin-created scenarios + assigns default characters
+   * BRIDGE: Combines file-based scenarios with admin-created scenarios + applies persistent character assignments
    */
   async getAllScenarios(): Promise<Scenario[]> {
     try {
@@ -155,7 +155,11 @@ class ScenarioService {
         }
       }
       
-      // CRITICAL FIX: Assign default characters to scenarios that don't have character assignments
+      // Apply persistent character assignments
+      const { scenarioCharacterService } = await import('../services/scenarioCharacterService');
+      allScenarios = scenarioCharacterService.applyAssignments(allScenarios);
+      
+      // FALLBACK: Assign default characters to scenarios that still don't have character assignments
       const { characterService } = await import('../services/characterService');
       const scenariosWithCharacters = await Promise.all(
         allScenarios.map(async (scenario) => {
