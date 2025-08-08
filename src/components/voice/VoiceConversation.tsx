@@ -3,8 +3,11 @@ import { useConversation } from '@elevenlabs/react';
 import type { ScenarioContextProps } from '../../types/scenario';
 import { transcriptService } from '../../services/transcriptService';
 import { feedbackService } from '../../services/feedbackService';
-import { ratingService } from '../../services/ratingService';
+// Removed old ratingService - now using userDataService for progress tracking
+import { userDataService } from '../../services/userDataService';
+import { useAuth } from '../../context/AuthContext';
 import FeedbackDisplay from '../FeedbackDisplay';
+import type { Conversation, ConversationFeedback } from '../../types/user-data';
 
 interface Message {
   speaker: string;
@@ -32,6 +35,10 @@ const VoiceConversation: React.FC<ScenarioContextProps> = ({ scenario }) => {
   const [elevenLabsConversationId, setElevenLabsConversationId] = useState<string | null>(null);
   const [feedbackData, setFeedbackData] = useState<FeedbackData | null>(null);
   const [showFeedback, setShowFeedback] = useState(false);
+  const [conversationId, setConversationId] = useState<string | null>(null);
+  const [conversationStartTime, setConversationStartTime] = useState<Date | null>(null);
+  
+  const { user } = useAuth();
 
   // Scenario context is now available for future AI agent configuration
   // Currently maintaining SACRED voice functionality unchanged per constitutional constraints
@@ -142,6 +149,27 @@ const VoiceConversation: React.FC<ScenarioContextProps> = ({ scenario }) => {
       updateStatus('Connecting to ElevenLabs...', 'connecting');
       setIsActive(true);
       
+      // Create conversation record
+      if (user && scenario) {
+        const newConversationId = userDataService.generateId();
+        const startTime = new Date();
+        
+        const conversation: Conversation = {
+          id: newConversationId,
+          userId: user.id,
+          scenarioId: scenario.id.toString(),
+          scenarioTitle: scenario.title,
+          status: 'in_progress',
+          startedAt: startTime
+        };
+        
+        userDataService.saveConversation(conversation);
+        setConversationId(newConversationId);
+        setConversationStartTime(startTime);
+        
+        console.log('💾 Conversation record created:', newConversationId);
+      }
+      
       // Using working agent ID from NM project temporarily
       // TODO: Replace with SkillCraft-specific agent ID after creating agent via dashboard
       const sessionResult = await conversation.startSession({
@@ -152,16 +180,16 @@ const VoiceConversation: React.FC<ScenarioContextProps> = ({ scenario }) => {
       // Try to capture conversation ID from session result (NM pattern)
       if (sessionResult) {
         const result = sessionResult as any;
-        const conversationId = result.conversationId || 
+        const possibleId = result.conversationId || 
                               result.conversation_id ||
                               result.id ||
                               result.sessionId ||
                               result.session_id ||
                               (typeof result === 'string' ? result : null);
         
-        if (conversationId && typeof conversationId === 'string') {
-          console.log('🎯 ElevenLabs Conversation ID captured from session:', conversationId);
-          setElevenLabsConversationId(conversationId);
+        if (possibleId && typeof possibleId === 'string') {
+          console.log('🎯 ElevenLabs Conversation ID captured from session:', possibleId);
+          setElevenLabsConversationId(possibleId);
         }
       }
       
@@ -223,31 +251,83 @@ const VoiceConversation: React.FC<ScenarioContextProps> = ({ scenario }) => {
             console.log('Overall assessment:', feedback.overallAssessment);
             console.log('Full feedback:', feedback.rawResponse);
             
-            // SPRINT 4: Update ratings based on conversation performance
+            // Get rating information for display (ratings updated automatically in userDataService.saveFeedback)
             let previousRating: number | undefined;
             let newRating: number | undefined;
             let skillLevel: string | undefined;
             
-            if (feedback.scores) {
-              console.log('📈 UPDATING USER RATINGS...');
+            if (feedback.scores && user) {
+              console.log('📈 RATING INFORMATION FOR DISPLAY...');
               
-              // Get previous rating before update
-              const currentRatings = ratingService.getUserRatings();
-              previousRating = currentRatings.overall;
+              // Get previous rating from user progress
+              const overallProgress = userDataService.getUserProgress(user.id, 'overall');
+              previousRating = overallProgress?.currentRating || 0;
               
-              // Update ratings
-              const updatedRatings = ratingService.updateRatings(feedback.scores);
-              newRating = updatedRatings.overall;
-              skillLevel = ratingService.getSkillLevel(updatedRatings.overall);
+              // Calculate new rating (will be done by saveFeedback, but we can estimate for display)
+              const alpha = 0.25;
+              newRating = Math.round((alpha * feedback.scores.overall_score + (1 - alpha) * previousRating) * 100) / 100;
+              
+              // Get skill level
+              if (newRating >= 90) skillLevel = 'Master';
+              else if (newRating >= 80) skillLevel = 'Expert';
+              else if (newRating >= 70) skillLevel = 'Advanced';
+              else if (newRating >= 60) skillLevel = 'Intermediate';
+              else if (newRating >= 50) skillLevel = 'Developing';
+              else skillLevel = 'Beginner';
               
               console.log('🎖️ SKILL LEVEL:', skillLevel);
-              console.log('📊 Total Conversations:', updatedRatings.conversationsCount);
+              console.log('📊 Previous Rating:', previousRating, '→ New Rating:', newRating);
               
-              addMessage('System', `Rating updated! Overall: ${newRating} (${skillLevel})`);
+              addMessage('System', `Rating updated! Overall: ${newRating.toFixed(1)} (${skillLevel})`);
             } else {
-              console.warn('⚠️ Cannot update ratings - no scores available');
+              console.warn('⚠️ Cannot calculate rating display - no scores or user available');
             }
             
+            // SAVE CONVERSATION DATA & FEEDBACK
+            if (user && conversationId && scenario && conversationStartTime && feedback.scores) {
+              // Update conversation record as completed
+              const completedConversation: Conversation = {
+                id: conversationId,
+                userId: user.id,
+                scenarioId: scenario.id.toString(),
+                scenarioTitle: scenario.title,
+                status: 'completed',
+                startedAt: conversationStartTime,
+                completedAt: new Date(),
+                duration: Math.floor((new Date().getTime() - conversationStartTime.getTime()) / 1000),
+                transcriptText: transcriptService.formatTranscript(transcriptData),
+                elevenLabsConversationId: elevenLabsConversationId || undefined
+              };
+              
+              userDataService.saveConversation(completedConversation);
+              
+              // Save feedback record
+              const conversationFeedback: ConversationFeedback = {
+                id: userDataService.generateId(),
+                conversationId: conversationId,
+                userId: user.id,
+                overall_score: feedback.scores.overall_score,
+                clarity_and_specificity: feedback.scores.sub_skills.clarity_and_specificity,
+                mutual_understanding: feedback.scores.sub_skills.mutual_understanding,
+                proactive_problem_solving: feedback.scores.sub_skills.proactive_problem_solving,
+                appropriate_customization: feedback.scores.sub_skills.appropriate_customization,
+                documentation_and_verification: feedback.scores.sub_skills.documentation_and_verification,
+                feedback_text: feedback.rawResponse,
+                ai_model_used: 'gemini-pro',
+                created_at: new Date()
+              };
+              
+              userDataService.saveFeedback(conversationFeedback);
+              
+              // Update scenario performance
+              userDataService.updateScenarioPerformance(user.id, scenario.id.toString(), feedback.scores.overall_score);
+              
+              console.log('💾 CONVERSATION & FEEDBACK SAVED SUCCESSFULLY!');
+              console.log('📊 User progress and scenario performance updated');
+            } else {
+              console.warn('⚠️ Cannot save conversation data - missing required data');
+            }
+
             // Store feedback data for display
             setFeedbackData({
               scores: feedback.scores,

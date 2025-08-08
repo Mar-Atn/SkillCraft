@@ -1,4 +1,5 @@
 import { createContext, useContext, useReducer, useEffect, ReactNode } from 'react';
+import { userInitService } from '../services/userInitService';
 
 interface User {
   id: string;
@@ -140,6 +141,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       
       localStorage.setItem('scsx_accessToken', accessToken);
       localStorage.setItem('scsx_user', JSON.stringify(mockUser.user));
+      
+      // Initialize user profile in data service
+      userInitService.initializeUser(
+        mockUser.user.id,
+        mockUser.user.email,
+        mockUser.user.firstName,
+        mockUser.user.lastName,
+        mockUser.user.role
+      );
       
       dispatch({
         type: 'LOGIN_SUCCESS',

@@ -4,7 +4,7 @@
 **Version:** 1.0  
 **Project:** SkillCraft Setting Expectations (SCSX). Voice-Powered Training Web App Allowing to Train the Skills of productive Managing Expectations Conversations for Leaders at an IT company   
 **Status:** Requirements Definition Phase
-
+**Product Approach:** create fully functional product (as per this PRD full functionality), that allows several admins (humans partnering with specialized AI agents - but outside the app) to start working on creation and improvement of content via simple and reliable admin interfaces: cases, personas, feedback prompts, without the need to revert to hard coding. While first loyal users could smoothly test the app and would provide us feedback on both sides - content an UX. We will then start regular product improvement cycles trill the product reaches desired quality for users and admins. 
 ---
 
 ## 1. PRODUCT OVERVIEW

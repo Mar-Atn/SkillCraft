@@ -3,7 +3,8 @@
 
 import { useEffect, useState } from 'react';
 import { TrendingUp, Target, Users, CheckCircle, FileText, BarChart3 } from 'lucide-react';
-import { ratingService } from '../services/ratingService';
+import { userDataService } from '../services/userDataService';
+import { useAuth } from '../context/AuthContext';
 
 interface UserRatings {
   overall: number;
@@ -18,21 +19,54 @@ interface UserRatings {
 
 export default function RatingDisplay() {
   const [ratings, setRatings] = useState<UserRatings | null>(null);
+  const { user } = useAuth();
 
   useEffect(() => {
-    // Load current ratings
-    const currentRatings = ratingService.getUserRatings();
-    setRatings(currentRatings);
-
-    // Listen for storage changes (in case ratings update from practice)
-    const handleStorageChange = () => {
-      const updatedRatings = ratingService.getUserRatings();
-      setRatings(updatedRatings);
+    if (!user) return;
+    
+    // Load user progress from new data service
+    const allProgress = userDataService.getUserAllProgress(user.id);
+    
+    // Convert progress records to ratings format
+    const ratingsData: UserRatings = {
+      overall: 0,
+      clarity_and_specificity: 0,
+      mutual_understanding: 0,
+      proactive_problem_solving: 0,
+      appropriate_customization: 0,
+      documentation_and_verification: 0,
+      conversationsCount: 0,
+      lastUpdated: 'No conversations yet'
     };
-
-    window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
-  }, []);
+    
+    // Map progress records to ratings
+    allProgress.forEach(progress => {
+      switch (progress.skillName) {
+        case 'overall':
+          ratingsData.overall = progress.currentRating;
+          ratingsData.conversationsCount = progress.conversationCount;
+          ratingsData.lastUpdated = progress.lastUpdated.toLocaleDateString();
+          break;
+        case 'clarity_and_specificity':
+          ratingsData.clarity_and_specificity = progress.currentRating;
+          break;
+        case 'mutual_understanding':
+          ratingsData.mutual_understanding = progress.currentRating;
+          break;
+        case 'proactive_problem_solving':
+          ratingsData.proactive_problem_solving = progress.currentRating;
+          break;
+        case 'appropriate_customization':
+          ratingsData.appropriate_customization = progress.currentRating;
+          break;
+        case 'documentation_and_verification':
+          ratingsData.documentation_and_verification = progress.currentRating;
+          break;
+      }
+    });
+    
+    setRatings(ratingsData);
+  }, [user]);
 
   if (!ratings) {
     return <div>Loading ratings...</div>;
@@ -47,6 +81,15 @@ export default function RatingDisplay() {
     if (rating >= 60) return 'bg-yellow-500';
     if (rating >= 50) return 'bg-orange-500';
     return 'bg-red-500';
+  };
+
+  const getSkillLevel = (rating: number) => {
+    if (rating >= 90) return 'Master';
+    if (rating >= 80) return 'Expert';
+    if (rating >= 70) return 'Advanced';
+    if (rating >= 60) return 'Intermediate';
+    if (rating >= 50) return 'Developing';
+    return 'Beginner';
   };
 
   const getSkillTextColor = (rating: number) => {
@@ -118,7 +161,7 @@ export default function RatingDisplay() {
               {ratings.conversationsCount === 0 ? '—' : ratings.overall.toFixed(1)}
             </div>
             <div className={`text-sm font-medium ${getSkillTextColor(ratings.overall)}`}>
-              {ratingService.getSkillLevel(ratings.overall)}
+              {getSkillLevel(ratings.overall)}
             </div>
           </div>
         </div>
@@ -162,7 +205,7 @@ export default function RatingDisplay() {
                     {ratings.conversationsCount === 0 ? '—' : skill.value.toFixed(1)}
                   </span>
                   <span className={`ml-2 text-sm ${getSkillTextColor(skill.value)}`}>
-                    {ratings.conversationsCount > 0 && `(${ratingService.getSkillLevel(skill.value)})`}
+                    {ratings.conversationsCount > 0 && `(${getSkillLevel(skill.value)})`}
                   </span>
                 </div>
               </div>
