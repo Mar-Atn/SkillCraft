@@ -1,0 +1,401 @@
+# SkillCraft Data Flow Analysis
+*Current System Architecture & Data Dependencies*
+
+## Overview
+This document maps all data flows in the SkillCraft application, showing where data is created, stored, transformed, and consumed across the system.
+
+## Data Entities & Storage
+
+### 1. **Users** 👤
+**Interface:** `User` in `AuthContext.tsx`
+```typescript
+{
+  id: string
+  name: string
+  email: string
+  role: 'user' | 'admin'
+}
+```
+- **Created by:** LoginForm.tsx (mock authentication)
+- **Stored in:** AuthContext state (in-memory only)
+- **Used by:** All protected components, UserHeader, admin access control
+- **Persistence:** ❌ **None - lost on page refresh**
+
+### 2. **Characters** 🎭
+**Interface:** `Character` in `characterService.ts`
+```typescript
+{
+  id: number
+  name: string
+  personalContext: string
+  characterDescription: string
+  complexityLevel: number
+  // Legacy fields (deprecated)
+  voiceId?: string
+  voiceName?: string
+  // ElevenLabs Integration
+  elevenLabsAgentId?: string
+  elevenLabsAgentName?: string
+  elevenLabsVoiceId?: string
+  elevenLabsVoiceName?: string
+  elevenLabsVoiceGender?: 'male' | 'female' | 'unknown'
+}
+```
+- **Created by:** 
+  - Initial: `dataService.ts` default data (3 characters)
+  - Runtime: CharacterManagement.tsx admin interface
+- **Stored in:** localStorage (`skillcraft_data` key)
+- **Managed by:** `dataService.ts` + `characterService.ts`
+- **Used by:**
+  - CharacterManagement.tsx (CRUD operations)
+  - ScenarioManagement.tsx (character assignment)
+  - VoiceConversation.tsx (agent ID for conversations)
+- **ElevenLabs Integration:** elevenLabsService.ts fetches real agents for assignment
+
+### 3. **Scenarios** 📋
+**Interface:** `Scenario` in `types/scenario.ts`
+```typescript
+{
+  id: number
+  title: string
+  generalContext: string
+  humanInstructions: string
+  aiInstructions: string
+  learningObjectives: string[]
+  focusPoints: string[]
+  debriefingPoints: string[]
+  difficultyLevel: number
+  assignedCharacterId?: number
+  assignedCharacterName?: string
+}
+```
+- **Created by:** 
+  - Primary: `/public/Scenarios.md` file (parsed by scenarioService)
+  - Future: ScenarioManagement.tsx admin interface
+- **Stored in:** 
+  - Source: Scenarios.md file
+  - Runtime: scenarioService.ts cache
+- **Managed by:** `scenarioService.ts`
+- **Used by:**
+  - Dashboard.tsx (scenario selection)
+  - ScenarioPage.tsx (scenario display)
+  - ScenarioManagement.tsx (admin CRUD)
+  - VoiceConversation.tsx (AI instructions)
+
+### 4. **ElevenLabs Agents** 🎙️
+**Interface:** `ElevenLabsAgent` in `elevenLabsService.ts`
+```typescript
+{
+  agent_id: string
+  name: string
+  description?: string
+  voice_id: string
+  voice_name?: string
+  voice_gender?: 'male' | 'female' | 'unknown'
+  created_at?: string
+}
+```
+- **Created by:** ElevenLabs platform (external)
+- **Fetched by:** elevenLabsService.ts via `/v1/convai/agents` API
+- **Stored in:** Runtime state only (CharacterManagement.tsx)
+- **Used by:**
+  - CharacterManagement.tsx (agent selection dropdown)
+  - Character records (after assignment)
+  - VoiceConversation.tsx (for conversations)
+
+### 5. **User Progress & Ratings** 📈
+**Interface:** `UserProgress`, `ConversationFeedback` in `types/user-data.ts`
+```typescript
+UserProgress {
+  userId: string
+  skill: string
+  currentRating: number
+  conversationCount: number
+  lastUpdated: Date
+}
+
+ConversationFeedback {
+  id: string
+  conversationId: string
+  userId: string
+  overall_score: number
+  clarity_and_specificity: number
+  mutual_understanding: number
+  proactive_problem_solving: number
+  appropriate_customization: number
+  documentation_and_verification: number
+  feedback_text: string
+  ai_model_used: string
+  created_at: Date
+}
+```
+- **Created by:** VoiceConversation.tsx (after conversation ends)
+- **Stored in:** localStorage (`skillcraft_user_data` key)
+- **Managed by:** `userDataService.ts`
+- **Used by:**
+  - Dashboard.tsx (progress display)
+  - FeedbackDisplay.tsx (feedback modal)
+  - Rating system (EWMA calculations)
+
+### 6. **Conversations** 💬
+**Interface:** `Conversation` in `types/user-data.ts`
+```typescript
+{
+  id: string
+  userId: string
+  scenarioId: string
+  scenarioTitle: string
+  status: 'in_progress' | 'completed'
+  startedAt: Date
+  completedAt?: Date
+  duration?: number
+  transcriptText?: string
+  elevenLabsConversationId?: string
+}
+```
+- **Created by:** VoiceConversation.tsx (start of conversation)
+- **Stored in:** localStorage (`skillcraft_user_data` key)
+- **Managed by:** userDataService.ts
+- **Used by:** Future past conversations feature
+
+### 7. **Transcripts** 📝
+**Source:** ElevenLabs API (`/v1/convai/conversations/{id}/transcript`)
+- **Fetched by:** transcriptService.ts (polling pattern)
+- **Processed by:** feedbackService.ts → Gemini API
+- **Stored in:** Conversation records (transcriptText field)
+- **Used by:** AI feedback generation
+
+### 8. **AI Feedback** 🤖
+**Source:** Gemini Pro API (Google AI)
+- **Generated by:** feedbackService.ts
+- **Input:** Conversation transcripts
+- **Output:** Structured feedback with 5-criteria scoring
+- **Stored in:** ConversationFeedback records
+- **Used by:** FeedbackDisplay.tsx, rating calculations
+
+## Data Flow Diagrams
+
+### **Authentication Flow**
+```
+LoginForm.tsx → AuthContext → User State (in-memory)
+                     ↓
+              All Protected Components
+```
+
+### **Character Management Flow**
+```
+dataService.ts (defaults) → localStorage
+         ↓
+CharacterManagement.tsx → elevenLabsService.ts → ElevenLabs API
+         ↓                        ↓
+   characterService.ts ← Agent Assignment → dataService.ts
+         ↓
+   localStorage Update
+```
+
+### **Scenario Flow**
+```
+/public/Scenarios.md → scenarioService.ts → Dashboard.tsx
+                              ↓                ↓
+                        ScenarioPage.tsx → VoiceConversation.tsx
+```
+
+### **Conversation Flow**
+```
+ScenarioPage.tsx → VoiceConversation.tsx → ElevenLabs API
+                            ↓
+                   conversationId capture
+                            ↓
+              transcriptService.ts → ElevenLabs Transcript API
+                            ↓
+              feedbackService.ts → Gemini API
+                            ↓
+              userDataService.ts → localStorage
+```
+
+## Storage Breakdown
+
+### **localStorage Keys**
+1. `skillcraft_data` - Characters and system data (dataService.ts)
+2. `skillcraft_user_data` - User progress, conversations, feedback (userDataService.ts)
+
+### **File-based Storage**
+1. `/public/Scenarios.md` - Scenario definitions
+2. `/docs/Company_SX_Guide.pdf` - Reference materials
+
+### **External APIs**
+1. **ElevenLabs API** - Agents, conversations, transcripts
+2. **Gemini API** - AI feedback generation
+
+### **Runtime State**
+1. **AuthContext** - Current user
+2. **Component State** - UI state, form data, selections
+3. **Service Caches** - scenarioService scenario data
+
+## Data Dependencies & Issues
+
+### ✅ **Working Flows**
+1. **Character-Agent Assignment** - Complete localStorage persistence
+2. **Scenario Loading** - File-based with service caching
+3. **Voice Conversations** - ElevenLabs integration with fallbacks
+4. **Feedback Generation** - End-to-end transcript→feedback→storage
+5. **Progress Tracking** - EWMA rating system with persistence
+
+### ⚠️ **Potential Issues**
+
+#### **1. User Authentication**
+- **Issue:** No persistence - users lost on refresh
+- **Impact:** Progress tracking broken, admin access lost
+- **Fix Needed:** Add user persistence to localStorage or backend
+
+#### **2. Scenario-Character Assignment**
+- **Issue:** Two separate assignment systems
+  - Scenarios.md has `assignedCharacterId` (file-based)
+  - Characters stored in localStorage (dataService)
+- **Impact:** Potential consistency issues
+- **Fix Needed:** Unify assignment approach
+
+#### **3. Data Source Split**
+- **Issue:** Mixed storage approaches
+  - Characters: localStorage (dynamic)
+  - Scenarios: File-based (static)
+- **Impact:** Admin can't easily modify scenarios
+- **Fix Needed:** Consider moving scenarios to localStorage or database
+
+#### **4. Missing Admin Features**
+- **Issue:** ScenarioManagement.tsx has CRUD UI but scenarios still file-based
+- **Impact:** Admin changes don't persist
+- **Fix Needed:** Connect scenario admin to persistence layer
+
+#### **5. Past Conversations Access**
+- **Issue:** Conversations stored but no UI to view them
+- **Impact:** Users can't review their practice history
+- **Fix Needed:** Add conversation history component
+
+## Recommendations
+
+### **Priority 1: User Persistence**
+Add user persistence to AuthContext/localStorage to maintain login state
+
+### **Priority 2: Unified Scenario Management**
+Either:
+- Move scenarios to localStorage (like characters), OR
+- Keep file-based but make ScenarioManagement read-only
+
+### **Priority 3: Data Consistency**
+Ensure character-scenario assignments work consistently across admin and user interfaces
+
+### **Priority 4: Past Conversations**
+Add UI to access stored conversation history and feedback
+
+### **Priority 5: Admin Integration**
+Complete admin interfaces - ensure all CRUD operations persist correctly
+
+## Data Validation
+
+### **Current Validation**
+- ✅ Character complexity levels (1-10)
+- ✅ Required scenario fields
+- ✅ ElevenLabs agent ID format
+- ✅ User rating bounds (0-100)
+
+### **Missing Validation**
+- Email format validation
+- Scenario field length limits  
+- Character name uniqueness
+- Agent assignment conflicts
+
+## 🚨 PRD COMPLIANCE ANALYSIS
+
+### **Critical Gaps Between Implementation vs PRD Requirements**
+
+After comparing current implementation with SCSX_PRD.md, several significant deviations were found:
+
+#### **🔥 CRITICAL MISSING FEATURES (PRD Required)**
+
+1. **Past Conversations Access** (PRD 3.1.2 & 2.1)
+   - **PRD Requirement:** "Access to all past conversations and feedbacks" (button on main dashboard)
+   - **Current Status:** ❌ Data stored but no UI access
+   - **Impact:** BLOCKING - Users cannot review practice history as specified
+
+2. **Star Rating System** (PRD 3.1.2)
+   - **PRD Requirement:** Scenarios show 1-3 stars based on best score (1⭐<60, 2⭐60-80, 3⭐>80)
+   - **Current Status:** ❌ Not implemented
+   - **Impact:** BLOCKING - Users cannot track scenario completion progress
+
+3. **Character Auto-Assignment vs Manual Selection** (PRD 3.1.2)
+   - **PRD Requirement:** "Automatic (by default) or Choose from available AI negotiation partners"
+   - **Current Status:** ⚠️ Only automatic assignment implemented
+   - **Impact:** MEDIUM - Missing user choice feature
+
+4. **Admin Feedback Prompt Management** (PRD 4.1.3)
+   - **PRD Requirement:** "Choice of existing models... Simple interface - list of existing prompts"
+   - **Current Status:** ❌ Hardcoded Gemini, no admin control
+   - **Impact:** BLOCKING - Admin cannot customize feedback as specified
+
+5. **Data Storage Inconsistency** (PRD vs Implementation)
+   - **PRD Requirement:** Characters in "AI_characters.md file" + Scenarios in "Scenarios.md file"
+   - **Current Status:** ⚠️ Characters in localStorage, scenarios in file (mixed approach)
+   - **Impact:** MEDIUM - Architecture deviation from specification
+
+#### **⚠️ IMPORTANT MISSING FEATURES**
+
+6. **Progress Chart Visualization** (PRD 3.1.2)
+   - **PRD Requirement:** "Progress Chart for overall skill score: Historical improvement trends over time"
+   - **Current Status:** ❌ Data available but no chart component
+   - **Impact:** HIGH - Core user feedback missing
+
+7. **Conversation Time Limit** (PRD 3.1.3)
+   - **PRD Requirement:** "Voice Conversation Experience (15 minutes limit)"
+   - **Current Status:** ❌ No time limit enforcement
+   - **Impact:** MEDIUM - Sessions may run too long
+
+8. **Voice Generation Admin Interface** (PRD 4.1.2)
+   - **PRD Requirement:** "button change voice - generates another voice automatically"
+   - **Current Status:** ⚠️ Manual agent selection instead of automatic generation
+   - **Impact:** LOW - Different approach but functional
+
+#### **✅ CORRECTLY IMPLEMENTED PRD FEATURES**
+
+- User authentication with test/admin accounts ✅
+- Voice conversation via ElevenLabs API ✅
+- AI feedback generation with scoring ✅
+- 5-criteria skill assessment ✅
+- Character complexity levels (1-10) ✅
+- Scenario difficulty levels (1-10) ✅
+- Admin character/scenario management interfaces ✅
+- Real-time voice conversation with context awareness ✅
+- Post-conversation transcript access ✅
+
+#### **📋 COMPLIANCE SUMMARY**
+
+| PRD Requirement Category | Status | Compliance % |
+|--------------------------|--------|--------------|
+| **Core User Journey (3.1)** | ⚠️ | 60% - Missing past conversations, star ratings, progress chart |
+| **Voice System (3.2)** | ✅ | 95% - Only missing time limit |
+| **Characters (3.3)** | ⚠️ | 80% - Storage approach different, missing voice generation |
+| **Scenarios (3.4)** | ✅ | 90% - Core functionality complete |
+| **Feedback Engine (3.5)** | ⚠️ | 70% - Missing admin prompt management |
+| **Scoring System (3.6)** | ✅ | 95% - All criteria and calculation complete |
+| **Admin Functionality (4.1)** | ⚠️ | 65% - Missing feedback customization interface |
+
+**OVERALL PRD COMPLIANCE: ~75%** 
+
+### **🎯 PRIORITY FIXES TO ACHIEVE PRD COMPLIANCE**
+
+#### **Phase 1: Critical Missing Features**
+1. **Past Conversations UI** - Add dashboard button + conversation history page
+2. **Star Rating Display** - Add 1-3 star indicators based on scenario scores
+3. **Progress Chart Component** - Visualize skill improvement over time
+4. **Admin Feedback Management** - Interface to customize AI feedback prompts
+
+#### **Phase 2: Important Enhancements**
+5. **Conversation Time Limits** - 15-minute session enforcement
+6. **Character Selection Choice** - User can override default character assignment
+7. **Data Storage Alignment** - Consider moving characters to AI_characters.md as specified
+
+#### **Phase 3: Architecture Alignment**
+8. **File-based Character Storage** - Move from localStorage to AI_characters.md per PRD
+9. **Voice Generation Interface** - Add automatic voice generation button for admin
+
+This analysis reveals that while the core architecture is solid and most complex features work correctly, several user-facing features specified in the PRD are missing, which impacts the complete user experience as designed.
