@@ -23,9 +23,18 @@ export class TranscriptService {
    */
   async fetchTranscript(conversationId: string): Promise<ConversationData> {
     console.log('🎯 Fetching transcript using NM proven methodology');
-    console.log(`Conversation ID: ${conversationId}`);
+    console.log(`Raw Conversation ID: ${conversationId}`);
     
-    const url = `https://api.elevenlabs.io/v1/convai/conversations/${conversationId}`;
+    // Extract the actual conversation ID from the room format
+    // Format: room_agent_xxx_conv_yyy → conv_yyy
+    let actualConversationId = conversationId;
+    if (conversationId.includes('_conv_')) {
+      actualConversationId = conversationId.split('_conv_')[1];
+      actualConversationId = 'conv_' + actualConversationId;
+      console.log(`Extracted conversation ID: ${actualConversationId}`);
+    }
+    
+    const url = `https://api.elevenlabs.io/v1/convai/conversations/${actualConversationId}`;
     const headers = {
       'xi-api-key': ELEVENLABS_API_KEY,
       'Content-Type': 'application/json'

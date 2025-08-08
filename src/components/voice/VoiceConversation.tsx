@@ -191,24 +191,6 @@ const VoiceConversation: React.FC<ScenarioContextProps> = ({ scenario }) => {
       console.error('ElevenLabs error:', error);
       updateStatus(`Error: ${error.message}`, 'error');
       setIsActive(false);
-    },
-    onMessage: (message: any) => {
-      console.log('📨 ElevenLabs message received:', message);
-      
-      // TESTS PATTERN: Capture transcript in real-time from messages
-      if (message.type === 'user_transcript' && message.user_transcript?.trim()) {
-        addMessage('You', message.user_transcript);
-        console.log('🎙️ User transcript captured:', message.user_transcript);
-      }
-      
-      if (message.type === 'agent_response' && message.agent_response?.trim()) {
-        const speakerName = assignedCharacter?.name || 'AI Assistant';
-        addMessage(speakerName, message.agent_response);
-        console.log('🤖 Agent response captured:', message.agent_response);
-      }
-      
-      // Handle other message types
-      handleMessage(message);
     }
   });
 
@@ -294,18 +276,81 @@ const VoiceConversation: React.FC<ScenarioContextProps> = ({ scenario }) => {
   const stop = async () => {
     try {
       await conversation.endSession();
-      updateStatus('Conversation stopped', '');
+      updateStatus('Processing conversation...', 'processing');
       setIsActive(false);
       
-      // Skip transcript fetching for now - conversations work without it
       console.log('💬 Conversation completed successfully');
       console.log('Messages captured during conversation:', messages.length);
       
-      // Simple completion feedback
-      if (messages.length > 0) {
-        addMessage('System', `Conversation completed! ${messages.length} messages exchanged.`);
+      // Now fetch transcript using the captured conversation ID
+      if (elevenLabsConversationId) {
+        console.log('📝 Fetching transcript for conversation:', elevenLabsConversationId);
+        
+        try {
+          // Use the transcript service with the properly captured ID
+          const transcript = await transcriptService.pollTranscriptUntilReady(elevenLabsConversationId, 120000);
+          
+          if (transcript && transcript.length > 0) {
+            console.log('✅ Transcript fetched successfully:', transcript.length, 'messages');
+            
+            // Convert transcript to our message format for display
+            const transcriptMessages = transcript.map((msg: any) => ({
+              speaker: msg.role === 'user' ? 'You' : (assignedCharacter?.name || 'AI Assistant'),
+              text: msg.text || msg.content || '',
+              id: Date.now() + Math.random()
+            }));
+            
+            // Update messages with transcript
+            setMessages(transcriptMessages);
+            addMessage('System', `📄 Transcript loaded: ${transcript.length} messages`);
+            
+            // Generate AI feedback from transcript
+            console.log('🤖 Generating AI feedback from transcript...');
+            updateStatus('Generating personalized feedback...', 'processing');
+            
+            const feedback = await feedbackService.generateFeedback(transcript);
+            
+            if (feedback.scores) {
+              console.log('🎯 FEEDBACK GENERATED WITH SCORES!');
+              console.log('Overall Score:', feedback.scores.overall_score);
+              console.log('Sub-skills:', feedback.scores.sub_skills);
+              
+              // Display feedback
+              addMessage('System', '--- PERSONALIZED FEEDBACK ---');
+              addMessage('System', `🎯 Overall Score: ${feedback.scores.overall_score}/100`);
+              
+              if (feedback.strengths.length > 0) {
+                addMessage('System', '✅ Strengths: ' + feedback.strengths.join(', '));
+              }
+              if (feedback.areasForImprovement.length > 0) {
+                addMessage('System', '📈 Areas for improvement: ' + feedback.areasForImprovement.join(', '));
+              }
+              if (feedback.recommendations.length > 0) {
+                addMessage('System', '💡 Recommendations: ' + feedback.recommendations.join(', '));
+              }
+              
+              updateStatus('Feedback complete!', 'success');
+            } else {
+              console.warn('⚠️ No scores in feedback');
+              addMessage('System', 'Feedback generated but no scores available');
+              updateStatus('Conversation complete', 'success');
+            }
+            
+          } else {
+            console.log('📄 Empty transcript received');
+            addMessage('System', 'Conversation completed but transcript is empty');
+            updateStatus('Conversation complete', 'success');
+          }
+          
+        } catch (transcriptError: any) {
+          console.error('❌ Transcript fetching failed:', transcriptError);
+          addMessage('System', 'Conversation completed but transcript unavailable');
+          updateStatus('Conversation complete (no transcript)', 'success');
+        }
       } else {
-        addMessage('System', 'Conversation completed. Voice interaction was successful!');
+        console.warn('⚠️ No conversation ID available for transcript');
+        addMessage('System', 'Conversation completed but no ID for transcript');
+        updateStatus('Conversation complete', 'success');
       }
       
     } catch (error: any) {
