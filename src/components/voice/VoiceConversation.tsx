@@ -3,7 +3,7 @@ import { useConversation } from '@elevenlabs/react';
 import type { ScenarioContextProps } from '../../types/scenario';
 import { transcriptService } from '../../services/transcriptService';
 import { feedbackService } from '../../services/feedbackService';
-// Removed old ratingService - now using userDataService for progress tracking
+import { ratingService } from '../../services/ratingService';
 import { userDataService } from '../../services/userDataService';
 import { characterService, type Character } from '../../services/characterService';
 import { useAuth } from '../../context/AuthContext';
@@ -164,20 +164,51 @@ const VoiceConversation: React.FC<ScenarioContextProps> = ({ scenario }) => {
     }
   }, []);
 
-  // Create agent overrides with scenario-specific AI instructions
+  // Create comprehensive context prompt combining character and scenario
+  const createContextPrompt = () => {
+    if (!scenario) return undefined;
+    
+    const contextParts = [];
+    
+    // Character identity and context
+    if (assignedCharacter) {
+      contextParts.push(`You are ${assignedCharacter.name}.`);
+      if (assignedCharacter.personalContext) {
+        contextParts.push(assignedCharacter.personalContext);
+      }
+    }
+    
+    // Scenario context
+    if (scenario.generalContext) {
+      contextParts.push(`\nScenario: ${scenario.generalContext}`);
+    }
+    
+    // AI-specific instructions
+    if (scenario.aiInstructions) {
+      contextParts.push(`\nYour instructions: ${scenario.aiInstructions}`);
+    }
+    
+    return contextParts.join('\n\n').trim();
+  };
+
+  // Create agent overrides with complete context
   const agentOverrides = scenario ? {
     agent: {
       prompt: {
-        prompt: scenario.aiInstructions
+        prompt: createContextPrompt() || scenario.aiInstructions
       },
-      firstMessage: `Hi! How's it going?`
+      firstMessage: assignedCharacter ? 
+        `Hi! I'm ${assignedCharacter.name}. How's it going?` : 
+        `Hi! How's it going?`
     }
   } : undefined;
 
   // Get API key from environment
   const apiKey = import.meta.env.VITE_ELEVENLABS_API_KEY || '';
   
-  const conversation = useConversation({
+  // Memoize conversation configuration to prevent unnecessary re-renders
+  const conversationConfig = React.useMemo(() => ({
+    overrides: agentOverrides,
     onConnect: () => {
       console.log('Connected to ElevenLabs');
       updateStatus('Connected - Start speaking!', 'connected');
@@ -191,8 +222,11 @@ const VoiceConversation: React.FC<ScenarioContextProps> = ({ scenario }) => {
       console.error('ElevenLabs error:', error);
       updateStatus(`Error: ${error.message}`, 'error');
       setIsActive(false);
-    }
-  });
+    },
+    onMessage: handleMessage
+  }), [agentOverrides, handleMessage]);
+
+  const conversation = useConversation(conversationConfig);
 
   const start = async () => {
     try {
@@ -239,6 +273,17 @@ const VoiceConversation: React.FC<ScenarioContextProps> = ({ scenario }) => {
         characterName: assignedCharacter?.name || 'Default',
         agentName: assignedCharacter?.elevenLabsAgentName || 'NM Fallback Agent'
       });
+      
+      // Debug log the complete context being sent
+      if (agentOverrides) {
+        console.log('🎭 Agent context override:', {
+          promptLength: agentOverrides.agent?.prompt?.prompt?.length || 0,
+          promptPreview: agentOverrides.agent?.prompt?.prompt?.substring(0, 200) + '...',
+          firstMessage: agentOverrides.agent?.firstMessage
+        });
+      } else {
+        console.log('⚠️ No agent overrides - using default agent behavior');
+      }
       
       const sessionResult = await conversation.startSession({
         agentId: agentId,
@@ -315,52 +360,62 @@ const VoiceConversation: React.FC<ScenarioContextProps> = ({ scenario }) => {
               console.log('Overall Score:', feedback.scores.overall_score);
               console.log('Sub-skills:', feedback.scores.sub_skills);
               
-              // Calculate rating update using EWMA
+              // RESTORED: Use working synchronous rating service pattern
+              let previousRating: number | undefined;
+              let newRating: number | undefined;
+              let skillLevel: string | undefined;
+              
               if (user) {
-                const ratingService = await import('../../services/ratingService').then(m => m.ratingService);
-                const ratingUpdate = await ratingService.updateRating(user.id, feedback.scores);
+                console.log('📈 UPDATING USER RATINGS...');
                 
-                // Prepare feedback data with rating info
-                const feedbackWithRating: FeedbackData = {
-                  ...feedback,
-                  newRating: ratingUpdate.newRatings.overall,
-                  previousRating: ratingUpdate.previousRatings.overall,
-                  skillLevel: ratingUpdate.skillLevel
-                };
+                // Get previous rating before update
+                const currentRatings = ratingService.getUserRatings();
+                previousRating = currentRatings.overall;
                 
-                // Save conversation with feedback
-                if (conversationId) {
-                  const conversationFeedback: ConversationFeedback = {
-                    overallScore: feedback.scores.overall_score,
-                    subSkills: feedback.scores.sub_skills,
+                // Update ratings using working synchronous method
+                const updatedRatings = ratingService.updateRatings(feedback.scores);
+                newRating = updatedRatings.overall;
+                skillLevel = ratingService.getSkillLevel(updatedRatings.overall);
+                
+                console.log('🎖️ SKILL LEVEL:', skillLevel);
+                console.log('📊 Total Conversations:', updatedRatings.conversationsCount);
+              }
+              
+              // Prepare feedback data with rating info
+              const feedbackWithRating: FeedbackData = {
+                ...feedback,
+                newRating,
+                previousRating,
+                skillLevel
+              };
+                
+              // Save conversation with feedback
+              if (conversationId && user) {
+                const conversationFeedback: ConversationFeedback = {
+                  overallScore: feedback.scores.overall_score,
+                  subSkills: feedback.scores.sub_skills,
                     strengths: feedback.strengths,
                     areasForImprovement: feedback.areasForImprovement,
                     recommendations: feedback.recommendations,
                     rawFeedback: feedback.rawResponse
                   };
                   
-                  userDataService.saveConversationFeedback(conversationId, conversationFeedback);
-                  
-                  // Update conversation status
-                  const conversations = userDataService.getUserConversations(user.id);
-                  const conversation = conversations.find(c => c.id === conversationId);
-                  if (conversation) {
-                    conversation.status = 'completed';
-                    conversation.completedAt = new Date();
-                    userDataService.saveConversation(conversation);
-                  }
-                }
+                userDataService.saveConversationFeedback(conversationId, conversationFeedback);
                 
-                // Set feedback data and show modal
-                setFeedbackData(feedbackWithRating);
-                setShowFeedback(true);
-                updateStatus('Conversation complete! Review your feedback.', 'success');
-              } else {
-                // No user logged in, just show feedback without rating
-                setFeedbackData(feedback);
-                setShowFeedback(true);
-                updateStatus('Conversation complete! Review your feedback.', 'success');
+                // Update conversation status
+                const conversations = userDataService.getUserConversations(user.id);
+                const conversation = conversations.find(c => c.id === conversationId);
+                if (conversation) {
+                  conversation.status = 'completed';
+                  conversation.completedAt = new Date();
+                  userDataService.saveConversation(conversation);
+                }
               }
+              
+              // Set feedback data and show modal
+              setFeedbackData(feedbackWithRating);
+              setShowFeedback(true);
+              updateStatus('Conversation complete! Review your feedback.', 'success');
             } else {
               console.warn('⚠️ No scores in feedback');
               updateStatus('Conversation complete', 'success');
@@ -368,14 +423,12 @@ const VoiceConversation: React.FC<ScenarioContextProps> = ({ scenario }) => {
             
           } else {
             console.log('📄 Empty transcript received');
-            addMessage('System', 'Conversation completed but transcript is empty');
-            updateStatus('Conversation complete', 'success');
+            updateStatus('Conversation complete (empty transcript)', 'success');
           }
           
         } catch (transcriptError: any) {
           console.error('❌ Transcript fetching failed:', transcriptError);
-          addMessage('System', 'Conversation completed but transcript unavailable');
-          updateStatus('Conversation complete (no transcript)', 'success');
+          updateStatus('Conversation complete (error loading feedback)', 'warning');
         }
       } else {
         console.warn('⚠️ No conversation ID available for transcript');

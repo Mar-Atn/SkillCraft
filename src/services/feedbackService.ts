@@ -31,92 +31,37 @@ interface FeedbackResult {
 }
 
 export class FeedbackService {
-  private adminPrompt: string = '';
+  private adminPrompt: string | null = null;
 
   /**
-   * Load admin-defined prompt (checks custom admin config first, then feedback_prompts.md)
+   * Load admin-defined prompt from feedback_prompts.md (RESTORED working pattern)
    */
   async loadAdminPrompt(): Promise<string> {
-    if (this.adminPrompt && this.adminPrompt.trim()) {
+    if (this.adminPrompt) {
       return this.adminPrompt;
     }
 
     try {
-      // STEP 5: ADMIN PROMPT CUSTOMIZATION
-      // First check if admin has configured a custom prompt
-      const customConfig = localStorage.getItem('skillcraft_feedback_config');
-      if (customConfig) {
-        try {
-          const config = JSON.parse(customConfig);
-          if (config.prompt && config.prompt.trim()) {
-            console.log('✅ Using admin-customized feedback prompt');
-            this.adminPrompt = config.prompt.trim();
-            return this.adminPrompt;
-          }
-        } catch (error) {
-          console.warn('⚠️ Invalid custom feedback config, falling back to default');
-        }
-      }
-
-      // Check for direct custom prompt in localStorage
-      const customPrompt = localStorage.getItem('skillcraft_custom_feedback_prompt');
-      if (customPrompt && customPrompt.trim()) {
-        console.log('✅ Using admin-customized feedback prompt from localStorage');
-        this.adminPrompt = customPrompt.trim();
-        return this.adminPrompt;
-      }
-
-      // Load from feedback_prompts.md file
       const response = await fetch('/feedback_prompts.md');
       if (!response.ok) {
-        throw new Error('Failed to load feedback prompts');
+        throw new Error('Failed to load admin prompt');
       }
       
-      const content = await response.text();
-      
-      // Extract the default prompt from the markdown
-      const defaultPromptMatch = content.match(/## Default Setting Expectations Prompt\n\n([\s\S]*?)(?=\n## Alternative Prompts|\n---|\n$)/);
-      if (defaultPromptMatch) {
-        this.adminPrompt = defaultPromptMatch[1].trim();
-        console.log('✅ Admin prompt loaded from feedback_prompts.md');
-        return this.adminPrompt;
-      }
-
-      throw new Error('Could not find default prompt in feedback_prompts.md');
-      
+      this.adminPrompt = await response.text();
+      console.log('✅ Admin prompt loaded from feedback_prompts.md');
+      return this.adminPrompt;
     } catch (error) {
       console.error('❌ Failed to load admin prompt:', error);
       // Fallback prompt
-      this.adminPrompt = `You are an expert executive coach specializing in leadership communication and setting expectations conversations.
+      this.adminPrompt = `
+Analyze this setting expectations conversation and provide feedback on:
+1. Clarity and Specificity
+2. Two-Way Communication  
+3. Supportive Approach
+4. Practical Next Steps
 
-Analyze this conversation transcript between a team leader and their team member. Evaluate the leader's performance in setting clear, actionable expectations while maintaining a supportive relationship.
-
-Provide your feedback in this format:
-
-\`\`\`json
-{
-  "overall_score": [1-10],
-  "sub_skills": {
-    "clarity_and_specificity": [1-10],
-    "mutual_understanding": [1-10], 
-    "proactive_problem_solving": [1-10],
-    "appropriate_customization": [1-10],
-    "documentation_and_verification": [1-10]
-  }
-}
-\`\`\`
-
-**STRENGTHS:**
-- [List 2-3 specific strengths]
-
-**AREAS FOR IMPROVEMENT:**  
-- [List 2-3 specific areas for improvement]
-
-**ACTIONABLE RECOMMENDATIONS:**
-- [Provide 2-3 actionable recommendations]
-
-**OVERALL ASSESSMENT:**
-[Provide 2-3 sentence summary]`.trim();
+Provide strengths, areas for improvement, and actionable recommendations.
+      `.trim();
       return this.adminPrompt;
     }
   }
