@@ -1,5 +1,7 @@
 // Character Service - Manages AI characters for scenarios
-// Handles character data loading from AI_characters.md and provides character selection
+// Now integrated with dataService for persistent storage
+
+import { dataService } from './dataService';
 
 export interface Character {
   id: number;
@@ -7,62 +9,38 @@ export interface Character {
   personalContext: string;
   characterDescription: string;
   complexityLevel: number;
+  // Legacy fields (deprecated, keeping for compatibility)
   voiceId?: string;
   voiceName?: string;
+  // ElevenLabs Integration
+  elevenLabsAgentId?: string;     // Actual ElevenLabs agent ID
+  elevenLabsAgentName?: string;   // Agent name from ElevenLabs
+  elevenLabsVoiceId?: string;     // Voice ID from ElevenLabs
+  elevenLabsVoiceName?: string;   // Voice name from ElevenLabs
+  elevenLabsVoiceGender?: 'male' | 'female' | 'unknown'; // Voice gender
 }
 
 class CharacterService {
-  private characters: Character[] | null = null;
+  // Remove local caching - use dataService as source of truth
 
   /**
-   * Get all available characters
-   * TODO: In production, this will load from AI_characters.md file
+   * Get all available characters from persistent storage
    */
   async getAllCharacters(): Promise<Character[]> {
-    if (this.characters) {
-      return this.characters;
-    }
-
-    // Mock data synchronized with Character Management - will be replaced with file loading from AI_characters.md
-    this.characters = [
-      {
-        id: 1,
-        name: "Sarah Mitchell",
-        personalContext: "Senior Marketing Manager with 8 years experience. Direct communication style, results-oriented.",
-        characterDescription: "Experienced professional who values efficiency and clear expectations. Can be impatient with unclear instructions.",
-        complexityLevel: 3,
-        voiceId: "voice_001",
-        voiceName: "Professional Female"
-      },
-      {
-        id: 2,
-        name: "David Chen", 
-        personalContext: "New graduate, enthusiastic but overwhelmed. First corporate job, eager to learn.",
-        characterDescription: "Recent graduate who asks many questions and needs detailed guidance. Sometimes misunderstands instructions.",
-        complexityLevel: 2,
-        voiceId: "voice_002",
-        voiceName: "Young Male Professional"
-      },
-      {
-        id: 3,
-        name: "Karen Williams",
-        personalContext: "Veteran employee, 15 years with company. Resistant to change, skeptical of new processes.",
-        characterDescription: "Experienced but set in her ways. Challenges new ideas and needs strong justification for changes.",
-        complexityLevel: 7,
-        voiceId: "voice_003",
-        voiceName: "Mature Female Authority"
-      }
-    ];
-
-    return this.characters;
+    console.log('🔄 CharacterService: Loading characters from dataService');
+    const characters = dataService.getCharacters();
+    console.log('✅ CharacterService: Loaded', characters.length, 'characters');
+    return characters;
   }
 
   /**
    * Get a specific character by ID
    */
   async getCharacter(id: number): Promise<Character | null> {
-    const characters = await this.getAllCharacters();
-    return characters.find(char => char.id === id) || null;
+    console.log('🔍 CharacterService: Getting character by ID:', id);
+    const character = dataService.getCharacter(id);
+    console.log(character ? '✅ Character found' : '❌ Character not found');
+    return character;
   }
 
   /**
@@ -98,12 +76,50 @@ class CharacterService {
   }
 
   /**
-   * Update character assignment for a scenario
-   * TODO: In production, this will update the Scenarios.md file
+   * Save/update a character
+   */
+  async saveCharacter(character: Character): Promise<Character> {
+    console.log('💾 CharacterService: Saving character:', character.name);
+    const savedCharacter = dataService.saveCharacter(character);
+    console.log('✅ CharacterService: Character saved successfully');
+    return savedCharacter;
+  }
+  
+  /**
+   * Delete a character
+   */
+  async deleteCharacter(id: number): Promise<boolean> {
+    console.log('🗑️ CharacterService: Deleting character ID:', id);
+    const success = dataService.deleteCharacter(id);
+    console.log(success ? '✅ Character deleted' : '❌ Delete failed');
+    return success;
+  }
+  
+  /**
+   * Assign ElevenLabs agent to character
+   */
+  async assignElevenLabsAgent(
+    characterId: number,
+    agentId: string,
+    agentName: string,
+    voiceId: string,
+    voiceName: string,
+    voiceGender: 'male' | 'female' | 'unknown'
+  ): Promise<boolean> {
+    console.log('🎯 CharacterService: Assigning ElevenLabs agent to character:', characterId);
+    const success = dataService.assignElevenLabsAgent(
+      characterId, agentId, agentName, voiceId, voiceName, voiceGender
+    );
+    console.log(success ? '✅ Agent assigned' : '❌ Assignment failed');
+    return success;
+  }
+  
+  /**
+   * Update character assignment for a scenario (maintained for compatibility)
    */
   async assignCharacterToScenario(scenarioId: number, characterId: number): Promise<void> {
-    // This would update the file-based storage in production
-    console.log(`Assigning character ${characterId} to scenario ${scenarioId}`);
+    console.log(`📝 CharacterService: Assigning character ${characterId} to scenario ${scenarioId}`);
+    // This would be handled by scenario service when that's implemented
   }
 }
 

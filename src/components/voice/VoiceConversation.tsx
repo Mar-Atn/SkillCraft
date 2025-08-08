@@ -1,10 +1,11 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { useConversation } from '@elevenlabs/react';
 import type { ScenarioContextProps } from '../../types/scenario';
 import { transcriptService } from '../../services/transcriptService';
 import { feedbackService } from '../../services/feedbackService';
 // Removed old ratingService - now using userDataService for progress tracking
 import { userDataService } from '../../services/userDataService';
+import { characterService, type Character } from '../../services/characterService';
 import { useAuth } from '../../context/AuthContext';
 import FeedbackDisplay from '../FeedbackDisplay';
 import type { Conversation, ConversationFeedback } from '../../types/user-data';
@@ -37,12 +38,49 @@ const VoiceConversation: React.FC<ScenarioContextProps> = ({ scenario }) => {
   const [showFeedback, setShowFeedback] = useState(false);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [conversationStartTime, setConversationStartTime] = useState<Date | null>(null);
+  const [assignedCharacter, setAssignedCharacter] = useState<Character | null>(null);
+  const [loadingCharacter, setLoadingCharacter] = useState(false);
   
   const { user } = useAuth();
 
-  // Scenario context is now available for future AI agent configuration
-  // Currently maintaining SACRED voice functionality unchanged per constitutional constraints
-  console.log('VoiceConversation initialized with scenario:', scenario?.title || 'No scenario selected');
+  // Load assigned character when scenario changes
+  useEffect(() => {
+    if (scenario?.assignedCharacterId) {
+      loadAssignedCharacter(scenario.assignedCharacterId);
+    } else {
+      setAssignedCharacter(null);
+    }
+  }, [scenario]);
+  
+  const loadAssignedCharacter = async (characterId: number) => {
+    setLoadingCharacter(true);
+    try {
+      console.log('🎭 Loading assigned character:', characterId);
+      const character = await characterService.getCharacter(characterId);
+      setAssignedCharacter(character);
+      
+      if (character?.elevenLabsAgentId) {
+        console.log('✅ Character has ElevenLabs agent:', {
+          character: character.name,
+          agent: character.elevenLabsAgentName,
+          agentId: character.elevenLabsAgentId
+        });
+      } else {
+        console.log('⚠️ Character has no ElevenLabs agent assigned:', character?.name);
+      }
+    } catch (error) {
+      console.error('❌ Failed to load assigned character:', error);
+      setAssignedCharacter(null);
+    } finally {
+      setLoadingCharacter(false);
+    }
+  };
+
+  console.log('VoiceConversation initialized:', {
+    scenario: scenario?.title || 'No scenario selected',
+    assignedCharacter: assignedCharacter?.name || 'None',
+    hasElevenLabsAgent: !!assignedCharacter?.elevenLabsAgentId
+  });
 
   const updateStatus = (newStatus: string, type: string = '') => {
     setStatus(newStatus);
@@ -90,7 +128,9 @@ const VoiceConversation: React.FC<ScenarioContextProps> = ({ scenario }) => {
         
       case 'agent_response':
         if (message.agent_response?.trim()) {
-          addMessage('Alex', message.agent_response);
+          // Use character name if available, otherwise use generic 'AI Assistant'
+          const speakerName = assignedCharacter?.name || 'AI Assistant';
+          addMessage(speakerName, message.agent_response);
         }
         break;
         
@@ -146,6 +186,17 @@ const VoiceConversation: React.FC<ScenarioContextProps> = ({ scenario }) => {
 
   const start = async () => {
     try {
+      // Check if character and agent are assigned
+      if (!assignedCharacter) {
+        updateStatus('No character assigned to this scenario', 'error');
+        return;
+      }
+      
+      if (!assignedCharacter.elevenLabsAgentId) {
+        updateStatus(`Character "${assignedCharacter.name}" has no ElevenLabs agent assigned`, 'error');
+        return;
+      }
+      
       updateStatus('Connecting to ElevenLabs...', 'connecting');
       setIsActive(true);
       
@@ -170,11 +221,18 @@ const VoiceConversation: React.FC<ScenarioContextProps> = ({ scenario }) => {
         console.log('💾 Conversation record created:', newConversationId);
       }
       
-      // Using working agent ID from NM project temporarily
-      // TODO: Replace with SkillCraft-specific agent ID after creating agent via dashboard
+      // Use character's assigned ElevenLabs agent ID if available
+      const agentId = assignedCharacter?.elevenLabsAgentId || 'agent_7601k1g0796kfj2bzkcds0bkmw2m';
+      
+      console.log('🚀 Starting conversation with agent:', {
+        agentId,
+        characterName: assignedCharacter?.name || 'Default',
+        agentName: assignedCharacter?.elevenLabsAgentName || 'NM Fallback Agent'
+      });
+      
       const sessionResult = await conversation.startSession({
-        agentId: 'agent_7601k1g0796kfj2bzkcds0bkmw2m', // Working agent ID - configured for expectation-setting
-        connectionType: 'websocket'
+        agentId: agentId,
+        connectionType: 'websocket'  // Using websocket as per NM proven pattern
       });
       
       // Try to capture conversation ID from session result (NM pattern)

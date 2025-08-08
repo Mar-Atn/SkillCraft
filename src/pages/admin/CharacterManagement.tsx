@@ -1,5 +1,5 @@
 // Character Management Admin Interface - PRD 4.1.2
-// CRUD operations for AI characters with ElevenLabs voice integration
+// CRUD operations for AI characters with ElevenLabs agent integration
 
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -14,20 +14,13 @@ import {
   AlertCircle,
   Volume2,
   RefreshCw,
-  User
+  User,
+  CheckCircle
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { characterService, type Character } from '../../services/characterService';
+import { elevenLabsService, type ElevenLabsAgent } from '../../services/elevenLabsService';
 import UserHeader from '../../components/layout/UserHeader';
-
-interface Character {
-  id: number;
-  name: string;
-  personalContext: string;
-  characterDescription: string;
-  complexityLevel: number;
-  voiceId?: string;
-  voiceName?: string;
-}
 
 interface CharacterFormData {
   id?: number;
@@ -35,50 +28,23 @@ interface CharacterFormData {
   personalContext: string;
   characterDescription: string;
   complexityLevel: number;
-  voiceId?: string;
-  voiceName?: string;
+  elevenLabsAgentId?: string;
+  elevenLabsAgentName?: string;
+  elevenLabsVoiceId?: string;
+  elevenLabsVoiceName?: string;
+  elevenLabsVoiceGender?: 'male' | 'female' | 'unknown';
 }
 
 export default function CharacterManagement() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [characters, setCharacters] = useState<Character[]>([]);
+  const [availableAgents, setAvailableAgents] = useState<ElevenLabsAgent[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingAgents, setLoadingAgents] = useState(false);
   const [editingCharacter, setEditingCharacter] = useState<CharacterFormData | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null);
-  const [generatingVoice, setGeneratingVoice] = useState(false);
-
-  // Mock data for demonstration
-  const mockCharacters: Character[] = [
-    {
-      id: 1,
-      name: "Sarah Mitchell",
-      personalContext: "Senior Marketing Manager with 8 years experience. Direct communication style, results-oriented.",
-      characterDescription: "Experienced professional who values efficiency and clear expectations. Can be impatient with unclear instructions.",
-      complexityLevel: 3,
-      voiceId: "voice_001",
-      voiceName: "Professional Female"
-    },
-    {
-      id: 2,
-      name: "David Chen",
-      personalContext: "New graduate, enthusiastic but overwhelmed. First corporate job, eager to learn.",
-      characterDescription: "Recent graduate who asks many questions and needs detailed guidance. Sometimes misunderstands instructions.",
-      complexityLevel: 2,
-      voiceId: "voice_002", 
-      voiceName: "Young Male Professional"
-    },
-    {
-      id: 3,
-      name: "Karen Williams",
-      personalContext: "Veteran employee, 15 years with company. Resistant to change, skeptical of new processes.",
-      characterDescription: "Experienced but set in her ways. Challenges new ideas and needs strong justification for changes.",
-      complexityLevel: 7,
-      voiceId: "voice_003",
-      voiceName: "Mature Female Authority"
-    }
-  ];
 
   useEffect(() => {
     // Redirect non-admin users
@@ -92,12 +58,29 @@ export default function CharacterManagement() {
 
   const loadCharacters = async () => {
     try {
-      // TODO: Implement actual data loading from AI_characters.md
-      setCharacters(mockCharacters);
+      console.log('🔄 Loading characters from characterService...');
+      const characterData = await characterService.getAllCharacters();
+      setCharacters(characterData);
+      console.log('✅ Loaded', characterData.length, 'characters');
       setLoading(false);
     } catch (error) {
-      console.error('Failed to load characters:', error);
+      console.error('❌ Failed to load characters:', error);
       setLoading(false);
+    }
+  };
+
+  const loadElevenLabsAgents = async () => {
+    setLoadingAgents(true);
+    try {
+      console.log('🔄 Fetching ElevenLabs agents...');
+      const agents = await elevenLabsService.fetchAgents();
+      setAvailableAgents(agents);
+      console.log('✅ Loaded', agents.length, 'ElevenLabs agents');
+    } catch (error: any) {
+      console.error('❌ Failed to load ElevenLabs agents:', error);
+      alert(`Failed to load ElevenLabs agents: ${error.message}`);
+    } finally {
+      setLoadingAgents(false);
     }
   };
 
@@ -106,26 +89,42 @@ export default function CharacterManagement() {
     personalContext: '',
     characterDescription: '',
     complexityLevel: 1,
-    voiceId: undefined,
-    voiceName: undefined
+    elevenLabsAgentId: undefined,
+    elevenLabsAgentName: undefined,
+    elevenLabsVoiceId: undefined,
+    elevenLabsVoiceName: undefined,
+    elevenLabsVoiceGender: undefined
   });
 
-  const startCreating = () => {
+  const startCreating = async () => {
     setEditingCharacter(getEmptyFormData());
     setIsCreating(true);
+    
+    // Auto-load agents when creating/editing
+    if (availableAgents.length === 0) {
+      await loadElevenLabsAgents();
+    }
   };
 
-  const startEditing = (character: Character) => {
+  const startEditing = async (character: Character) => {
     setEditingCharacter({
       id: character.id,
       name: character.name,
       personalContext: character.personalContext,
       characterDescription: character.characterDescription,
       complexityLevel: character.complexityLevel,
-      voiceId: character.voiceId,
-      voiceName: character.voiceName
+      elevenLabsAgentId: character.elevenLabsAgentId,
+      elevenLabsAgentName: character.elevenLabsAgentName,
+      elevenLabsVoiceId: character.elevenLabsVoiceId,
+      elevenLabsVoiceName: character.elevenLabsVoiceName,
+      elevenLabsVoiceGender: character.elevenLabsVoiceGender
     });
     setIsCreating(false);
+    
+    // Auto-load agents when creating/editing
+    if (availableAgents.length === 0) {
+      await loadElevenLabsAgents();
+    }
   };
 
   const cancelEditing = () => {
@@ -133,34 +132,25 @@ export default function CharacterManagement() {
     setIsCreating(false);
   };
 
-  const generateNewVoice = async () => {
+  const handleAgentSelection = (agentId: string) => {
     if (!editingCharacter) return;
     
-    setGeneratingVoice(true);
-    
-    try {
-      // TODO: Implement actual ElevenLabs voice generation
-      // This would call ElevenLabs API to generate a new voice
-      
-      // Mock implementation - simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      const newVoiceId = `voice_${Date.now()}`;
-      const newVoiceName = `Generated Voice ${Math.floor(Math.random() * 1000)}`;
-      
+    const selectedAgent = availableAgents.find(agent => agent.agent_id === agentId);
+    if (selectedAgent) {
       setEditingCharacter({
         ...editingCharacter,
-        voiceId: newVoiceId,
-        voiceName: newVoiceName
+        elevenLabsAgentId: selectedAgent.agent_id,
+        elevenLabsAgentName: selectedAgent.name,
+        elevenLabsVoiceId: selectedAgent.voice_id,
+        elevenLabsVoiceName: selectedAgent.voice_name,
+        elevenLabsVoiceGender: selectedAgent.voice_gender
       });
       
-      alert('New voice generated successfully!');
-      
-    } catch (error) {
-      console.error('Failed to generate voice:', error);
-      alert('Failed to generate new voice. Please try again.');
-    } finally {
-      setGeneratingVoice(false);
+      console.log('✅ Agent selected:', {
+        agent: selectedAgent.name,
+        voice: selectedAgent.voice_name,
+        gender: selectedAgent.voice_gender
+      });
     }
   };
 
@@ -168,51 +158,69 @@ export default function CharacterManagement() {
     if (!editingCharacter) return;
     
     try {
-      // TODO: Implement actual save functionality to AI_characters.md
+      console.log('💾 Saving character:', editingCharacter.name);
       
+      const characterToSave: Character = {
+        id: editingCharacter.id || 0,
+        name: editingCharacter.name,
+        personalContext: editingCharacter.personalContext,
+        characterDescription: editingCharacter.characterDescription,
+        complexityLevel: editingCharacter.complexityLevel,
+        elevenLabsAgentId: editingCharacter.elevenLabsAgentId,
+        elevenLabsAgentName: editingCharacter.elevenLabsAgentName,
+        elevenLabsVoiceId: editingCharacter.elevenLabsVoiceId,
+        elevenLabsVoiceName: editingCharacter.elevenLabsVoiceName,
+        elevenLabsVoiceGender: editingCharacter.elevenLabsVoiceGender
+      };
+      
+      const savedCharacter = await characterService.saveCharacter(characterToSave);
+      
+      // Update local state
       if (isCreating) {
-        const newCharacter: Character = {
-          ...editingCharacter,
-          id: Math.max(...characters.map(c => c.id)) + 1
-        };
-        setCharacters([...characters, newCharacter]);
+        setCharacters([...characters, savedCharacter]);
       } else {
         setCharacters(characters.map(c => 
-          c.id === editingCharacter.id ? { ...editingCharacter } as Character : c
+          c.id === savedCharacter.id ? savedCharacter : c
         ));
       }
       
       cancelEditing();
       alert(isCreating ? 'Character created successfully!' : 'Character updated successfully!');
       
-    } catch (error) {
-      console.error('Failed to save character:', error);
-      alert('Failed to save character. Please try again.');
+    } catch (error: any) {
+      console.error('❌ Failed to save character:', error);
+      alert(`Failed to save character: ${error.message}`);
     }
   };
 
   const deleteCharacter = async (id: number) => {
     try {
-      // TODO: Implement actual delete functionality
-      setCharacters(characters.filter(c => c.id !== id));
-      setDeleteConfirm(null);
-      alert('Character deleted successfully!');
-    } catch (error) {
-      console.error('Failed to delete character:', error);
-      alert('Failed to delete character. Please try again.');
+      const success = await characterService.deleteCharacter(id);
+      if (success) {
+        setCharacters(characters.filter(c => c.id !== id));
+        setDeleteConfirm(null);
+        alert('Character deleted successfully!');
+      } else {
+        alert('Failed to delete character.');
+      }
+    } catch (error: any) {
+      console.error('❌ Failed to delete character:', error);
+      alert(`Failed to delete character: ${error.message}`);
     }
   };
 
   const getComplexityColor = (level: number) => {
-    if (level <= 3) return 'bg-green-100 text-green-700';
-    if (level <= 7) return 'bg-yellow-100 text-yellow-700';
-    return 'bg-red-100 text-red-700';
+    if (level <= 3) return 'bg-green-100 text-green-600';
+    if (level <= 7) return 'bg-yellow-100 text-yellow-600';
+    return 'bg-red-100 text-red-600';
   };
 
-  const getComplexityLabel = (level: number) => {
-    if (level <= 3) return 'Easy';
-    if (level <= 7) return 'Moderate';
-    return 'Challenging';
+  const getVoiceGenderColor = (gender?: string) => {
+    switch (gender) {
+      case 'male': return 'bg-blue-100 text-blue-600';
+      case 'female': return 'bg-pink-100 text-pink-600';
+      default: return 'bg-gray-100 text-gray-600';
+    }
   };
 
   if (!user || user.role !== 'admin') {
@@ -263,7 +271,7 @@ export default function CharacterManagement() {
             <MessageSquare className="w-8 h-8 text-green-600" />
             <div>
               <h1 className="text-2xl font-bold text-slate-900">Character Management</h1>
-              <p className="text-slate-600">Create and manage AI characters for training scenarios</p>
+              <p className="text-slate-600">Manage AI characters and assign ElevenLabs voices</p>
             </div>
           </div>
 
@@ -322,7 +330,7 @@ export default function CharacterManagement() {
                   </div>
                 </div>
 
-                {/* Personal Context */}
+                {/* Text Areas */}
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-2">
                     Personal Context *
@@ -332,11 +340,10 @@ export default function CharacterManagement() {
                     onChange={(e) => setEditingCharacter({...editingCharacter, personalContext: e.target.value})}
                     rows={3}
                     className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
-                    placeholder="Background information about the character (role, experience, personality)"
+                    placeholder="Character's background, experience, and context"
                   />
                 </div>
 
-                {/* Character Description */}
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-2">
                     Character Description *
@@ -350,67 +357,83 @@ export default function CharacterManagement() {
                   />
                 </div>
 
-                {/* Voice Settings */}
-                <div className="border rounded-lg p-4 bg-slate-50">
-                  <h3 className="font-semibold text-slate-900 mb-4 flex items-center gap-2">
-                    <Volume2 className="w-5 h-5 text-blue-600" />
-                    ElevenLabs Voice Settings
-                  </h3>
-                  
-                  <div className="grid md:grid-cols-2 gap-4 mb-4">
-                    <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-2">
-                        Voice ID
-                      </label>
-                      <input
-                        type="text"
-                        value={editingCharacter.voiceId || ''}
-                        onChange={(e) => setEditingCharacter({...editingCharacter, voiceId: e.target.value})}
-                        className="w-full p-3 border border-slate-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        placeholder="Auto-generated voice ID"
-                        readOnly
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-2">
-                        Voice Name
-                      </label>
-                      <input
-                        type="text"
-                        value={editingCharacter.voiceName || ''}
-                        onChange={(e) => setEditingCharacter({...editingCharacter, voiceName: e.target.value})}
-                        className="w-full p-3 border border-slate-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        placeholder="Voice description"
-                        readOnly
-                      />
-                    </div>
+                {/* ElevenLabs Agent Selection */}
+                <div className="border rounded-lg p-4 bg-blue-50">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="font-semibold text-slate-900 flex items-center gap-2">
+                      <Volume2 className="w-5 h-5 text-blue-600" />
+                      ElevenLabs Agent Assignment
+                    </h3>
+                    <button
+                      onClick={loadElevenLabsAgents}
+                      disabled={loadingAgents}
+                      className={`flex items-center gap-2 px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
+                        loadingAgents 
+                          ? 'bg-gray-400 cursor-not-allowed text-white' 
+                          : 'bg-blue-600 hover:bg-blue-700 text-white'
+                      }`}
+                    >
+                      {loadingAgents ? (
+                        <>
+                          <RefreshCw className="w-4 h-4 animate-spin" />
+                          Loading...
+                        </>
+                      ) : (
+                        <>
+                          <RefreshCw className="w-4 h-4" />
+                          Refresh Agents
+                        </>
+                      )}
+                    </button>
                   </div>
                   
-                  <button
-                    onClick={generateNewVoice}
-                    disabled={generatingVoice}
-                    className={`flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition-colors ${
-                      generatingVoice 
-                        ? 'bg-gray-400 cursor-not-allowed' 
-                        : 'bg-blue-600 hover:bg-blue-700'
-                    } text-white`}
-                  >
-                    {generatingVoice ? (
-                      <>
-                        <RefreshCw className="w-4 h-4 animate-spin" />
-                        Generating Voice...
-                      </>
-                    ) : (
-                      <>
-                        <RefreshCw className="w-4 h-4" />
-                        Generate New Voice
-                      </>
-                    )}
-                  </button>
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-slate-700 mb-2">
+                      Select ElevenLabs Agent
+                    </label>
+                    <select
+                      value={editingCharacter.elevenLabsAgentId || ''}
+                      onChange={(e) => handleAgentSelection(e.target.value)}
+                      className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      disabled={loadingAgents}
+                    >
+                      <option value="">Select an agent...</option>
+                      {availableAgents.map(agent => (
+                        <option key={agent.agent_id} value={agent.agent_id}>
+                          {agent.name} ({agent.voice_name || 'Unknown Voice'} - {agent.voice_gender || 'Unknown'})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                   
-                  <p className="text-xs text-slate-500 mt-2">
-                    Click to automatically generate a new voice from ElevenLabs based on character description
-                  </p>
+                  {editingCharacter.elevenLabsAgentId && (
+                    <div className="grid md:grid-cols-2 gap-4 p-4 bg-white rounded-lg border">
+                      <div>
+                        <label className="block text-sm font-medium text-slate-600 mb-1">Agent Name</label>
+                        <div className="text-sm font-mono text-slate-800">{editingCharacter.elevenLabsAgentName}</div>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-slate-600 mb-1">Agent ID</label>
+                        <div className="text-xs font-mono text-slate-600">{editingCharacter.elevenLabsAgentId}</div>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-slate-600 mb-1">Voice Name</label>
+                        <div className="text-sm font-mono text-slate-800">{editingCharacter.elevenLabsVoiceName}</div>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-slate-600 mb-1">Voice Gender</label>
+                        <span className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${getVoiceGenderColor(editingCharacter.elevenLabsVoiceGender)}`}>
+                          {editingCharacter.elevenLabsVoiceGender || 'unknown'}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {availableAgents.length === 0 && !loadingAgents && (
+                    <div className="text-center py-4 text-slate-500">
+                      <p>No agents loaded. Click "Refresh Agents" to fetch from ElevenLabs.</p>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -419,7 +442,7 @@ export default function CharacterManagement() {
             <div>
               {characters.length === 0 ? (
                 <div className="text-center py-12">
-                  <User className="w-16 h-16 text-slate-300 mx-auto mb-4" />
+                  <MessageSquare className="w-16 h-16 text-slate-300 mx-auto mb-4" />
                   <h3 className="text-xl font-semibold text-slate-600 mb-2">No Characters Found</h3>
                   <p className="text-slate-500 mb-6">Get started by creating your first AI character.</p>
                   <button
@@ -430,20 +453,15 @@ export default function CharacterManagement() {
                   </button>
                 </div>
               ) : (
-                <div className="grid lg:grid-cols-2 gap-6">
+                <div className="space-y-4">
                   {characters.map((character) => (
                     <div key={character.id} className="border rounded-lg p-6 hover:shadow-md transition-shadow">
-                      <div className="flex items-start justify-between mb-4">
+                      <div className="flex items-center justify-between mb-4">
                         <div className="flex items-center gap-4">
-                          <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
-                            <User className="w-6 h-6 text-green-600" />
-                          </div>
-                          <div>
-                            <h3 className="text-xl font-bold text-slate-900">{character.name}</h3>
-                            <span className={`px-3 py-1 rounded-full text-sm font-medium ${getComplexityColor(character.complexityLevel)}`}>
-                              Level {character.complexityLevel} • {getComplexityLabel(character.complexityLevel)}
-                            </span>
-                          </div>
+                          <h3 className="text-xl font-bold text-slate-900">{character.name}</h3>
+                          <span className={`px-3 py-1 rounded-full text-sm font-medium ${getComplexityColor(character.complexityLevel)}`}>
+                            Complexity {character.complexityLevel}
+                          </span>
                         </div>
                         <div className="flex gap-2">
                           <button
@@ -463,7 +481,7 @@ export default function CharacterManagement() {
                         </div>
                       </div>
                       
-                      <div className="space-y-3">
+                      <div className="grid gap-4">
                         <div>
                           <h4 className="font-medium text-slate-800 mb-1">Personal Context:</h4>
                           <p className="text-sm text-slate-700">{character.personalContext}</p>
@@ -474,13 +492,36 @@ export default function CharacterManagement() {
                           <p className="text-sm text-slate-700">{character.characterDescription}</p>
                         </div>
                         
-                        {character.voiceName && (
-                          <div className="bg-blue-50 rounded-lg p-3">
-                            <div className="flex items-center gap-2 text-blue-700">
-                              <Volume2 className="w-4 h-4" />
-                              <span className="font-medium text-sm">Voice: {character.voiceName}</span>
+                        {/* ElevenLabs Agent Info */}
+                        {character.elevenLabsAgentId ? (
+                          <div className="bg-green-50 rounded-lg p-3 border-l-4 border-green-400">
+                            <div className="flex items-center gap-2 mb-2">
+                              <CheckCircle className="w-4 h-4 text-green-600" />
+                              <span className="font-medium text-green-800">ElevenLabs Agent Assigned</span>
                             </div>
-                            <span className="text-xs text-blue-600">ID: {character.voiceId}</span>
+                            <div className="grid md:grid-cols-2 gap-2 text-sm text-green-700">
+                              <div>
+                                <span className="font-medium">Agent:</span> {character.elevenLabsAgentName}
+                              </div>
+                              <div>
+                                <span className="font-medium">Voice:</span> {character.elevenLabsVoiceName}
+                                {character.elevenLabsVoiceGender && (
+                                  <span className={`ml-2 px-1 py-0.5 rounded text-xs ${getVoiceGenderColor(character.elevenLabsVoiceGender)}`}>
+                                    {character.elevenLabsVoiceGender}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="bg-yellow-50 rounded-lg p-3 border-l-4 border-yellow-400">
+                            <div className="flex items-center gap-2">
+                              <AlertCircle className="w-4 h-4 text-yellow-600" />
+                              <span className="font-medium text-yellow-800">No ElevenLabs Agent Assigned</span>
+                            </div>
+                            <p className="text-sm text-yellow-700 mt-1">
+                              Edit this character to assign an ElevenLabs agent for voice conversations.
+                            </p>
                           </div>
                         )}
                       </div>
@@ -505,7 +546,7 @@ export default function CharacterManagement() {
               </div>
               
               <p className="text-slate-700 mb-6">
-                Are you sure you want to delete this character? All associated voice data will be permanently removed.
+                Are you sure you want to delete this character? All associated data will be permanently removed.
               </p>
               
               <div className="flex gap-4 justify-end">
