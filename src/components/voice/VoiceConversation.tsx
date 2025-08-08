@@ -248,6 +248,8 @@ const VoiceConversation: React.FC<ScenarioContextProps> = ({ scenario }) => {
       // Try to capture conversation ID from session result (NM pattern)
       if (sessionResult) {
         const result = sessionResult as any;
+        console.log('🔍 Full session result object:', result);
+        
         const possibleId = result.conversationId || 
                               result.conversation_id ||
                               result.id ||
@@ -258,6 +260,9 @@ const VoiceConversation: React.FC<ScenarioContextProps> = ({ scenario }) => {
         if (possibleId && typeof possibleId === 'string') {
           console.log('🎯 ElevenLabs Conversation ID captured from session:', possibleId);
           setElevenLabsConversationId(possibleId);
+        } else {
+          console.warn('⚠️ Could not find conversation ID in session result');
+          console.log('Available keys:', Object.keys(result || {}));
         }
       }
       
