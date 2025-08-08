@@ -1,13 +1,25 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
 import VoiceConversation from '../components/voice/VoiceConversation'
 import ScenarioSelector from '../components/scenarios/ScenarioSelector'
 import MiniRatingDisplay from '../components/MiniRatingDisplay'
 import UserHeader from '../components/layout/UserHeader'
+import { ArrowLeft } from 'lucide-react'
 import type { Scenario } from '../types/scenario'
 
 export default function PracticePage() {
+  const location = useLocation();
+  const navigate = useNavigate();
   const [selectedScenario, setSelectedScenario] = useState<Scenario | null>(null)
   const [showVoiceConversation, setShowVoiceConversation] = useState(false)
+
+  useEffect(() => {
+    // Check if scenario was passed from dashboard
+    if (location.state?.scenario) {
+      setSelectedScenario(location.state.scenario);
+      setShowVoiceConversation(true);
+    }
+  }, [location.state]);
 
   const handleScenarioSelect = (scenario: Scenario | null) => {
     setSelectedScenario(scenario)
@@ -24,6 +36,10 @@ export default function PracticePage() {
     setShowVoiceConversation(false)
   }
 
+  const backToDashboard = () => {
+    navigate('/');
+  }
+
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
       <UserHeader />
@@ -33,6 +49,18 @@ export default function PracticePage() {
       </div>
       
       <div className="text-center mb-8">
+        {location.state?.scenario && (
+          <div className="flex items-center justify-center mb-4">
+            <button
+              onClick={backToDashboard}
+              className="flex items-center gap-2 text-blue-600 hover:text-blue-800 text-sm"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              Back to Dashboard
+            </button>
+          </div>
+        )}
+        
         <h1 className="text-3xl font-bold mb-2">Practice Setting Expectations</h1>
         <p className="text-slate-600">
           {selectedScenario 

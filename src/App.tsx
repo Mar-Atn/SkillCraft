@@ -1,7 +1,8 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
 import { AuthProvider } from './context/AuthContext'
 import ProtectedRoute from './components/auth/ProtectedRoute'
-import HomePage from './pages/HomePage'
+import Dashboard from './components/dashboard/Dashboard'
+import ScenarioPage from './pages/ScenarioPage'
 import PracticePage from './pages/PracticePage'
 
 function App() {
@@ -12,7 +13,12 @@ function App() {
           <Routes>
             <Route path="/" element={
               <ProtectedRoute>
-                <HomePage />
+                <Dashboard />
+              </ProtectedRoute>
+            } />
+            <Route path="/scenario/:scenarioId" element={
+              <ProtectedRoute>
+                <ScenarioPage />
               </ProtectedRoute>
             } />
             <Route path="/practice" element={
