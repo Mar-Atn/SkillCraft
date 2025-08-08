@@ -7,6 +7,7 @@ import PracticePage from './pages/PracticePage'
 import AdminDashboard from './pages/AdminDashboard'
 import ScenarioManagement from './pages/admin/ScenarioManagement'
 import CharacterManagement from './pages/admin/CharacterManagement'
+import FeedbackPrompts from './pages/admin/FeedbackPrompts'
 import Analytics from './pages/admin/Analytics'
 
 function App() {
@@ -43,6 +44,11 @@ function App() {
             <Route path="/admin/characters" element={
               <ProtectedRoute requireAdmin={true}>
                 <CharacterManagement />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/feedback" element={
+              <ProtectedRoute requireAdmin={true}>
+                <FeedbackPrompts />
               </ProtectedRoute>
             } />
             <Route path="/admin/analytics" element={
