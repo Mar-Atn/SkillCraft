@@ -127,7 +127,7 @@ class ScenarioService {
 
   /**
    * Get all available scenarios
-   * BRIDGE: Combines file-based scenarios with admin-created scenarios
+   * BRIDGE: Combines file-based scenarios with admin-created scenarios + assigns default characters
    */
   async getAllScenarios(): Promise<Scenario[]> {
     try {
@@ -155,7 +155,30 @@ class ScenarioService {
         }
       }
       
-      return allScenarios;
+      // CRITICAL FIX: Assign default characters to scenarios that don't have character assignments
+      const { characterService } = await import('../services/characterService');
+      const scenariosWithCharacters = await Promise.all(
+        allScenarios.map(async (scenario) => {
+          if (!scenario.assignedCharacterId) {
+            const defaultChar = await characterService.getDefaultCharacterForScenario(scenario.difficultyLevel);
+            if (defaultChar) {
+              console.log('🎭 Assigning default character to scenario:', {
+                scenario: scenario.title,
+                character: defaultChar.name,
+                characterId: defaultChar.id
+              });
+              return {
+                ...scenario,
+                assignedCharacterId: defaultChar.id,
+                assignedCharacterName: defaultChar.name
+              };
+            }
+          }
+          return scenario;
+        })
+      );
+      
+      return scenariosWithCharacters;
     } catch (error) {
       console.error('❌ Failed to load scenarios:', error);
       // Fallback to admin scenarios only if file fails
