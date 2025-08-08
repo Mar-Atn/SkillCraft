@@ -14,7 +14,8 @@ import {
   Database,
   Plus,
   Edit,
-  Trash2
+  Trash2,
+  ArrowLeft
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import UserHeader from '../components/layout/UserHeader';
@@ -59,8 +60,9 @@ export default function AdminDashboard() {
       title: 'Scenario Management',
       description: 'Create, edit, and manage training scenarios',
       icon: BookOpen,
-      color: 'bg-blue-500',
-      hoverColor: 'hover:bg-blue-600',
+      color: 'bg-blue-100',
+      hoverColor: 'hover:bg-blue-200',
+      textColor: 'text-blue-700',
       route: '/admin/scenarios',
       stats: `${stats.totalScenarios} scenarios`,
       actions: ['View All', 'Create New', 'Import/Export']
@@ -69,48 +71,53 @@ export default function AdminDashboard() {
       title: 'Character Management', 
       description: 'Manage AI characters and ElevenLabs voices',
       icon: MessageSquare,
-      color: 'bg-green-500',
-      hoverColor: 'hover:bg-green-600',
+      color: 'bg-green-100',
+      hoverColor: 'hover:bg-green-200',
+      textColor: 'text-green-700',
       route: '/admin/characters',
       stats: '6 characters',
       actions: ['View All', 'Create New', 'Voice Settings']
     },
     {
-      title: 'User Management',
-      description: 'View users, progress, and reset data',
-      icon: Users,
-      color: 'bg-purple-500',
-      hoverColor: 'hover:bg-purple-600',
-      route: '/admin/users',
-      stats: `${stats.totalUsers} users`,
-      actions: ['View All', 'Export Data', 'Reset Progress']
-    },
-    {
-      title: 'Analytics & Reports',
-      description: 'Usage statistics and performance metrics',
-      icon: BarChart3,
-      color: 'bg-orange-500',
-      hoverColor: 'hover:bg-orange-600',
-      route: '/admin/analytics',
-      stats: `${stats.totalSessions} sessions`,
-      actions: ['Usage Reports', 'Performance Data', 'Export']
-    },
-    {
       title: 'Feedback Settings',
       description: 'Configure AI feedback models and prompts',
       icon: Settings,
-      color: 'bg-red-500',
-      hoverColor: 'hover:bg-red-600',
+      color: 'bg-purple-100',
+      hoverColor: 'hover:bg-purple-200',
+      textColor: 'text-purple-700',
       route: '/admin/feedback',
       stats: '3 AI models',
       actions: ['Model Settings', 'Prompt Library', 'Thresholds']
     },
     {
+      title: 'Analytics & Reports',
+      description: 'Usage statistics and performance metrics',
+      icon: BarChart3,
+      color: 'bg-orange-100',
+      hoverColor: 'hover:bg-orange-200',
+      textColor: 'text-orange-700',
+      route: '/admin/analytics',
+      stats: `${stats.totalSessions} sessions`,
+      actions: ['Usage Reports', 'Performance Data', 'Export']
+    },
+    {
+      title: 'User Management',
+      description: 'View users, progress, and reset data',
+      icon: Users,
+      color: 'bg-indigo-100',
+      hoverColor: 'hover:bg-indigo-200',
+      textColor: 'text-indigo-700',
+      route: '/admin/users',
+      stats: `${stats.totalUsers} users`,
+      actions: ['View All', 'Export Data', 'Reset Progress']
+    },
+    {
       title: 'System Configuration',
       description: 'ElevenLabs, authentication, and system settings',
       icon: Database,
-      color: 'bg-gray-500',
-      hoverColor: 'hover:bg-gray-600',
+      color: 'bg-slate-100',
+      hoverColor: 'hover:bg-slate-200',
+      textColor: 'text-slate-700',
       route: '/admin/system',
       stats: 'All systems operational',
       actions: ['API Keys', 'Security', 'Backups']
@@ -122,6 +129,17 @@ export default function AdminDashboard() {
       <div className="container mx-auto px-4 py-8">
         <UserHeader />
         
+        {/* Navigation */}
+        <div className="flex items-center justify-between mb-6">
+          <button
+            onClick={() => navigate('/')}
+            className="flex items-center gap-2 text-blue-600 hover:text-blue-800 transition-colors"
+          >
+            <ArrowLeft className="w-5 h-5" />
+            Back to App Dashboard
+          </button>
+        </div>
+
         {/* Admin Header */}
         <div className="bg-gradient-to-r from-slate-800 to-slate-900 rounded-xl shadow-lg p-8 mb-8 text-white">
           <div className="flex items-center gap-4 mb-4">
@@ -163,15 +181,15 @@ export default function AdminDashboard() {
                 className="bg-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 overflow-hidden group"
               >
                 {/* Module Header */}
-                <div className={`${module.color} p-6 text-white`}>
+                <div className={`${module.color} p-6`}>
                   <div className="flex items-center gap-4 mb-3">
-                    <IconComponent className="w-8 h-8" />
+                    <IconComponent className={`w-8 h-8 ${module.textColor}`} />
                     <div>
-                      <h3 className="text-xl font-bold">{module.title}</h3>
-                      <p className="text-white/80 text-sm">{module.description}</p>
+                      <h3 className={`text-xl font-bold ${module.textColor}`}>{module.title}</h3>
+                      <p className={`${module.textColor}/80 text-sm`}>{module.description}</p>
                     </div>
                   </div>
-                  <div className="text-white/90 text-sm font-medium">{module.stats}</div>
+                  <div className={`${module.textColor}/90 text-sm font-medium`}>{module.stats}</div>
                 </div>
 
                 {/* Module Content */}
@@ -193,7 +211,7 @@ export default function AdminDashboard() {
                   
                   <button
                     onClick={() => navigate(module.route)}
-                    className={`w-full mt-6 ${module.color} ${module.hoverColor} text-white py-3 px-6 rounded-lg font-semibold transition-colors flex items-center justify-center gap-2`}
+                    className={`w-full mt-6 ${module.color} ${module.hoverColor} ${module.textColor} py-3 px-6 rounded-lg font-semibold transition-colors flex items-center justify-center gap-2 border border-current/20`}
                   >
                     Open {module.title}
                     <Settings className="w-4 h-4" />
