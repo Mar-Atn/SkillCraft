@@ -60,7 +60,14 @@ const VoiceConversation: React.FC<ScenarioContextProps> = ({ scenario }) => {
       console.log('⚠️ No assignedCharacterId found in scenario');
       setAssignedCharacter(null);
     }
-  }, [scenario]);
+    
+    // Debug info (only when scenario/character changes)
+    console.log('VoiceConversation state:', {
+      scenario: scenario?.title || 'No scenario selected',
+      assignedCharacter: assignedCharacter?.name || 'None',
+      hasElevenLabsAgent: !!assignedCharacter?.elevenLabsAgentId
+    });
+  }, [scenario, assignedCharacter]);
   
   const loadAssignedCharacter = async (characterId: number) => {
     setLoadingCharacter(true);
@@ -86,11 +93,7 @@ const VoiceConversation: React.FC<ScenarioContextProps> = ({ scenario }) => {
     }
   };
 
-  console.log('VoiceConversation initialized:', {
-    scenario: scenario?.title || 'No scenario selected',
-    assignedCharacter: assignedCharacter?.name || 'None',
-    hasElevenLabsAgent: !!assignedCharacter?.elevenLabsAgentId
-  });
+  // Moved console.log to useEffect to prevent infinite re-renders
 
   const updateStatus = (newStatus: string, type: string = '') => {
     setStatus(newStatus);
@@ -167,29 +170,18 @@ const VoiceConversation: React.FC<ScenarioContextProps> = ({ scenario }) => {
   const apiKey = import.meta.env.VITE_ELEVENLABS_API_KEY || '';
   
   const conversation = useConversation({
-    apiKey: apiKey,
-    overrides: agentOverrides,
     onConnect: () => {
-      console.log('Connected to ElevenLabs with scenario context:', scenario?.title || 'No scenario');
-      updateStatus('Connected - requesting microphone...', 'connected');
-    },
-    onMessage: handleMessage,
-    onAudio: (audioBuffer: any) => {
-      console.log('Received audio buffer:', audioBuffer);
-      updateStatus('AI is speaking...', 'speaking');
-      // The SDK will handle audio playback automatically
-      setTimeout(() => {
-        updateStatus('Listening...', 'listening');
-      }, 1000);
-    },
-    onError: (error: any) => {
-      console.error('Conversation error:', error);
-      updateStatus(`Error: ${error.message}`, 'error');
-      setIsActive(false);
+      console.log('Connected to ElevenLabs');
+      updateStatus('Connected - Start speaking!', 'connected');
     },
     onDisconnect: () => {
       console.log('Disconnected from ElevenLabs');
       updateStatus('Disconnected', '');
+      setIsActive(false);
+    },
+    onError: (error: any) => {
+      console.error('ElevenLabs error:', error);
+      updateStatus(`Error: ${error.message}`, 'error');
       setIsActive(false);
     }
   });
