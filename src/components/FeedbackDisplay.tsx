@@ -48,6 +48,91 @@ export default function FeedbackDisplay({ feedback, onClose }: FeedbackDisplayPr
     return cleaned;
   };
 
+  // Convert markdown-like text to JSX elements
+  const renderFormattedFeedback = (text: string) => {
+    if (!text) return <span className="text-gray-500">No detailed feedback available</span>;
+    
+    const lines = text.split('\n');
+    const elements: JSX.Element[] = [];
+    let currentList: string[] = [];
+    let listType: 'bullet' | 'none' = 'none';
+    
+    const flushList = () => {
+      if (currentList.length > 0) {
+        elements.push(
+          <ul key={`list-${elements.length}`} className="ml-4 my-2 space-y-1">
+            {currentList.map((item, idx) => (
+              <li key={idx} className="flex">
+                <span className="text-blue-500 mr-2">•</span>
+                <span>{item}</span>
+              </li>
+            ))}
+          </ul>
+        );
+        currentList = [];
+        listType = 'none';
+      }
+    };
+    
+    lines.forEach((line, index) => {
+      // Check for headers (lines starting with ## or ###)
+      if (line.startsWith('### ')) {
+        flushList();
+        elements.push(
+          <h4 key={`h4-${index}`} className="text-base font-semibold text-gray-800 mt-4 mb-2">
+            {line.replace('### ', '')}
+          </h4>
+        );
+      } else if (line.startsWith('## ')) {
+        flushList();
+        elements.push(
+          <h3 key={`h3-${index}`} className="text-lg font-bold text-gray-900 mt-4 mb-2">
+            {line.replace('## ', '')}
+          </h3>
+        );
+      } else if (line.startsWith('# ')) {
+        flushList();
+        elements.push(
+          <h2 key={`h2-${index}`} className="text-xl font-bold text-gray-900 mt-4 mb-3">
+            {line.replace('# ', '')}
+          </h2>
+        );
+      }
+      // Check for bullet points
+      else if (line.startsWith('- ') || line.startsWith('* ') || line.startsWith('• ')) {
+        const bulletContent = line.replace(/^[-*•]\s+/, '');
+        currentList.push(bulletContent);
+        listType = 'bullet';
+      }
+      // Check for bold text lines (lines starting with **)
+      else if (line.startsWith('**') && line.endsWith('**') && line.length > 4) {
+        flushList();
+        const boldText = line.replace(/^\*\*|\*\*$/g, '');
+        elements.push(
+          <h4 key={`bold-${index}`} className="font-semibold text-gray-800 mt-3 mb-2">
+            {boldText}
+          </h4>
+        );
+      }
+      // Regular paragraph
+      else if (line.trim()) {
+        flushList();
+        // Process inline bold text
+        const processedLine = line.replace(/\*\*(.*?)\*\*/g, (match, p1) => p1);
+        elements.push(
+          <p key={`p-${index}`} className="text-gray-700 mb-2">
+            {processedLine}
+          </p>
+        );
+      }
+    });
+    
+    // Flush any remaining list
+    flushList();
+    
+    return <div className="space-y-2">{elements}</div>;
+  };
+
   const getScoreColor = (score: number) => {
     if (score >= 85) return 'text-green-600';
     if (score >= 70) return 'text-blue-600';
@@ -156,16 +241,14 @@ export default function FeedbackDisplay({ feedback, onClose }: FeedbackDisplayPr
             </div>
           )}
 
-          {/* Personal Feedback - Raw Structured Text */}
+          {/* Personal Feedback - Formatted Text */}
           <div className="bg-gray-50 rounded-lg p-6 border border-gray-200">
             <div className="flex items-center gap-3 mb-4">
               <Lightbulb className="w-6 h-6 text-blue-600" />
               <h4 className="text-xl font-semibold text-gray-900">Personal Feedback</h4>
             </div>
-            <div className="prose prose-gray max-w-none">
-              <pre className="whitespace-pre-wrap text-gray-700 font-sans text-sm leading-relaxed bg-white p-4 rounded border">
-                {cleanFeedbackText(feedback.rawResponse) || 'No detailed feedback available'}
-              </pre>
+            <div className="bg-white p-6 rounded-lg border border-gray-100">
+              {renderFormattedFeedback(cleanFeedbackText(feedback.rawResponse))}
             </div>
           </div>
         </div>
