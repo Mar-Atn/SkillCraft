@@ -118,10 +118,11 @@ class ScenarioService {
 
   /**
    * Get a specific scenario by ID
+   * BRIDGE: Uses merged scenarios (file + admin) to find scenario
    */
   async getScenario(id: number): Promise<Scenario | null> {
-    const data = await this.loadScenarios();
-    return data.scenarios.find(scenario => scenario.id === id) || null;
+    const allScenarios = await this.getAllScenarios();
+    return allScenarios.find(scenario => scenario.id === id) || null;
   }
 
   /**
