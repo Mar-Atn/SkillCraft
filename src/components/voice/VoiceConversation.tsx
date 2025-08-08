@@ -43,31 +43,39 @@ const VoiceConversation: React.FC<ScenarioContextProps> = ({ scenario }) => {
   
   const { user } = useAuth();
 
-  // Load assigned character when scenario changes
+  // Load assigned character when scenario changes (ONCE per scenario)
   useEffect(() => {
+    if (!scenario) {
+      setAssignedCharacter(null);
+      return;
+    }
+
     console.log('🔍 VoiceConversation scenario debug:', {
-      scenarioTitle: scenario?.title,
-      assignedCharacterId: scenario?.assignedCharacterId,
-      assignedCharacterName: scenario?.assignedCharacterName,
-      hasAssignedCharacter: !!scenario?.assignedCharacterId,
-      fullScenario: scenario
+      scenarioTitle: scenario.title,
+      assignedCharacterId: scenario.assignedCharacterId,
+      hasAssignedCharacter: !!scenario.assignedCharacterId
     });
     
-    if (scenario?.assignedCharacterId) {
+    if (scenario.assignedCharacterId) {
       console.log('✅ Found assignedCharacterId, loading character:', scenario.assignedCharacterId);
       loadAssignedCharacter(scenario.assignedCharacterId);
     } else {
       console.log('⚠️ No assignedCharacterId found in scenario');
       setAssignedCharacter(null);
     }
-    
-    // Debug info (only when scenario/character changes)
-    console.log('VoiceConversation state:', {
-      scenario: scenario?.title || 'No scenario selected',
-      assignedCharacter: assignedCharacter?.name || 'None',
-      hasElevenLabsAgent: !!assignedCharacter?.elevenLabsAgentId
-    });
-  }, [scenario, assignedCharacter]);
+  }, [scenario?.id, scenario?.assignedCharacterId]); // Only when scenario ID or character assignment changes
+  
+  // Separate debug logging (doesn't affect character loading)
+  useEffect(() => {
+    if (assignedCharacter) {
+      console.log('VoiceConversation state updated:', {
+        scenario: scenario?.title || 'No scenario',
+        assignedCharacter: assignedCharacter.name,
+        hasElevenLabsAgent: !!assignedCharacter.elevenLabsAgentId,
+        agentId: assignedCharacter.elevenLabsAgentId
+      });
+    }
+  }, [assignedCharacter?.id]); // Only when character actually changes
   
   const loadAssignedCharacter = async (characterId: number) => {
     setLoadingCharacter(true);
