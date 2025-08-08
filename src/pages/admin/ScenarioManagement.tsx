@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { scenarioService } from '../../services/scenarioService';
+import { scenarioFileService } from '../../services/scenarioFileService';
 import { characterService, type Character } from '../../services/characterService';
 import UserHeader from '../../components/layout/UserHeader';
 import type { Scenario } from '../../types/scenario';
@@ -174,41 +175,64 @@ export default function ScenarioManagement() {
     if (!editingScenario) return;
     
     try {
-      // TODO: Implement actual save functionality
-      // For now, just update local state
+      console.log('💾 ScenarioManagement: Saving scenario via scenarioFileService...');
       
+      // Create or update scenario
+      let updatedScenarios: Scenario[];
       if (isCreating) {
         const newScenario: Scenario = {
           ...editingScenario,
-          id: Math.max(...scenarios.map(s => s.id)) + 1
+          id: Math.max(...scenarios.map(s => s.id), 0) + 1
         };
-        setScenarios([...scenarios, newScenario]);
+        updatedScenarios = [...scenarios, newScenario];
+        setScenarios(updatedScenarios);
       } else {
-        setScenarios(scenarios.map(s => 
-          s.id === editingScenario.id ? { ...editingScenario } as Scenario : s
-        ));
+        const updatedScenario = { ...editingScenario } as Scenario;
+        updatedScenarios = scenarios.map(s => 
+          s.id === editingScenario.id ? updatedScenario : s
+        );
+        setScenarios(updatedScenarios);
       }
+      
+      // BRIDGE: Save to persistent storage via scenarioFileService
+      await scenarioFileService.saveScenarios(updatedScenarios);
+      
+      // Invalidate cache so dashboard sees new scenarios immediately
+      scenarioFileService.invalidateScenarioCache();
       
       cancelEditing();
       
-      // Show success message
-      alert(isCreating ? 'Scenario created successfully!' : 'Scenario updated successfully!');
+      console.log('✅ ScenarioManagement: Scenario saved and bridge updated');
+      alert(isCreating ? 'Scenario created and saved successfully!' : 'Scenario updated and saved successfully!');
       
-    } catch (error) {
-      console.error('Failed to save scenario:', error);
-      alert('Failed to save scenario. Please try again.');
+    } catch (error: any) {
+      console.error('❌ Failed to save scenario:', error);
+      alert(`Failed to save scenario: ${error.message}`);
     }
   };
 
   const deleteScenario = async (id: number) => {
     try {
-      // TODO: Implement actual delete functionality
-      setScenarios(scenarios.filter(s => s.id !== id));
+      console.log('🗑️ ScenarioManagement: Deleting scenario ID:', id);
+      
+      // Update scenarios list (remove deleted scenario)
+      const updatedScenarios = scenarios.filter(s => s.id !== id);
+      setScenarios(updatedScenarios);
+      
+      // BRIDGE: Save updated list to persistent storage
+      await scenarioFileService.saveScenarios(updatedScenarios);
+      
+      // Invalidate cache so dashboard sees changes immediately
+      scenarioFileService.invalidateScenarioCache();
+      
       setDeleteConfirm(null);
+      
+      console.log('✅ ScenarioManagement: Scenario deleted and bridge updated');
       alert('Scenario deleted successfully!');
-    } catch (error) {
-      console.error('Failed to delete scenario:', error);
-      alert('Failed to delete scenario. Please try again.');
+      
+    } catch (error: any) {
+      console.error('❌ Failed to delete scenario:', error);
+      alert(`Failed to delete scenario: ${error.message}`);
     }
   };
 

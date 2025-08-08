@@ -126,10 +126,48 @@ class ScenarioService {
 
   /**
    * Get all available scenarios
+   * BRIDGE: Combines file-based scenarios with admin-created scenarios
    */
   async getAllScenarios(): Promise<Scenario[]> {
-    const data = await this.loadScenarios();
-    return data.scenarios;
+    try {
+      // Load scenarios from original file
+      const fileData = await this.loadScenarios();
+      let allScenarios = [...fileData.scenarios];
+      
+      // BRIDGE: Also check for admin-created scenarios in localStorage backup
+      const backup = localStorage.getItem('skillcraft_scenarios_backup');
+      if (backup) {
+        try {
+          const adminScenarios = JSON.parse(backup) as Scenario[];
+          console.log('🔄 Found', adminScenarios.length, 'admin-created scenarios in backup');
+          
+          // Merge admin scenarios, avoiding duplicates by ID
+          const fileScenarioIds = new Set(allScenarios.map(s => s.id));
+          const newAdminScenarios = adminScenarios.filter(s => !fileScenarioIds.has(s.id));
+          
+          if (newAdminScenarios.length > 0) {
+            allScenarios = [...allScenarios, ...newAdminScenarios];
+            console.log('✅ Merged', newAdminScenarios.length, 'new admin scenarios with file scenarios');
+          }
+        } catch (error) {
+          console.warn('⚠️ Failed to parse admin scenarios backup:', error);
+        }
+      }
+      
+      return allScenarios;
+    } catch (error) {
+      console.error('❌ Failed to load scenarios:', error);
+      // Fallback to admin scenarios only if file fails
+      const backup = localStorage.getItem('skillcraft_scenarios_backup');
+      if (backup) {
+        try {
+          return JSON.parse(backup) as Scenario[];
+        } catch {
+          return [];
+        }
+      }
+      return [];
+    }
   }
 
   /**
