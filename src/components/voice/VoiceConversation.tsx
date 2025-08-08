@@ -288,27 +288,27 @@ const VoiceConversation: React.FC<ScenarioContextProps> = ({ scenario }) => {
         
         try {
           // Use the transcript service with the properly captured ID
-          const transcript = await transcriptService.pollTranscriptUntilReady(elevenLabsConversationId, 120000);
+          const conversationData = await transcriptService.pollTranscriptUntilReady(elevenLabsConversationId, 120000);
           
-          if (transcript && transcript.length > 0) {
-            console.log('✅ Transcript fetched successfully:', transcript.length, 'messages');
+          if (conversationData && conversationData.transcript && conversationData.transcript.length > 0) {
+            console.log('✅ Transcript fetched successfully:', conversationData.transcript.length, 'messages');
             
             // Convert transcript to our message format for display
-            const transcriptMessages = transcript.map((msg: any) => ({
+            const transcriptMessages = conversationData.transcript.map((msg: any) => ({
               speaker: msg.role === 'user' ? 'You' : (assignedCharacter?.name || 'AI Assistant'),
-              text: msg.text || msg.content || '',
+              text: msg.message || msg.text || msg.content || '',
               id: Date.now() + Math.random()
             }));
             
             // Update messages with transcript
             setMessages(transcriptMessages);
-            addMessage('System', `📄 Transcript loaded: ${transcript.length} messages`);
+            addMessage('System', `📄 Transcript loaded: ${conversationData.transcript.length} messages`);
             
             // Generate AI feedback from transcript
             console.log('🤖 Generating AI feedback from transcript...');
             updateStatus('Generating personalized feedback...', 'processing');
             
-            const feedback = await feedbackService.generateFeedback(transcript);
+            const feedback = await feedbackService.generateFeedback(conversationData.transcript);
             
             if (feedback.scores) {
               console.log('🎯 FEEDBACK GENERATED WITH SCORES!');
