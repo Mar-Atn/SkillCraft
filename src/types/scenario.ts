@@ -8,6 +8,8 @@ export interface Scenario {
   focusPoints: string[];
   debriefingPoints: string[];
   difficultyLevel: number;
+  assignedCharacterId?: number;
+  assignedCharacterName?: string;
 }
 
 export interface ScenarioData {
