@@ -242,7 +242,7 @@ const VoiceConversation: React.FC<ScenarioContextProps> = ({ scenario }) => {
       
       const sessionResult = await conversation.startSession({
         agentId: agentId,
-        connectionType: 'websocket'  // Using websocket as per NM proven pattern
+        connectionType: 'webrtc'  // Using webrtc as per TESTS proven pattern
       });
       
       // Try to capture conversation ID from session result (NM pattern)
@@ -458,6 +458,31 @@ const VoiceConversation: React.FC<ScenarioContextProps> = ({ scenario }) => {
           {status}
         </div>
       </div>
+
+      {/* Character & Agent Info Display */}
+      {assignedCharacter ? (
+        <div className="mb-6 p-4 bg-blue-50 rounded-lg border-l-4 border-blue-400">
+          <div className="flex items-center gap-3 mb-2">
+            <div className="w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold">
+              {assignedCharacter.name.charAt(0)}
+            </div>
+            <div>
+              <h3 className="font-semibold text-blue-900">Speaking with: {assignedCharacter.name}</h3>
+              <p className="text-blue-700 text-sm">{assignedCharacter.personalContext}</p>
+            </div>
+          </div>
+          {assignedCharacter.elevenLabsAgentId && (
+            <div className="text-xs text-blue-600 font-mono bg-blue-100 px-2 py-1 rounded mt-2">
+              ElevenLabs Agent: {assignedCharacter.elevenLabsAgentName || 'Unknown'} ({assignedCharacter.elevenLabsAgentId})
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="mb-6 p-4 bg-yellow-50 rounded-lg border-l-4 border-yellow-400">
+          <p className="text-yellow-800 font-medium">No character assigned to this scenario</p>
+          <p className="text-yellow-700 text-sm">Using default voice agent</p>
+        </div>
+      )}
 
       <div className="flex justify-center mb-6">
         {!isActive ? (
