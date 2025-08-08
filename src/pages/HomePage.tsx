@@ -1,10 +1,13 @@
 import { Link } from 'react-router-dom'
 import { Mic, Target, TrendingUp, Users } from 'lucide-react'
+import UserHeader from '../components/layout/UserHeader'
 import RatingDisplay from '../components/RatingDisplay'
 
 export default function HomePage() {
   return (
-    <div className="container mx-auto px-4 py-16">
+    <div className="container mx-auto px-4 py-8">
+      <UserHeader />
+
       <header className="text-center mb-16">
         <h1 className="text-5xl font-bold text-slate-900 mb-4">
           SkillCraft

@@ -55,7 +55,8 @@ export default function FeedbackDisplay({ feedback, onClose }: FeedbackDisplayPr
     const lines = text.split('\n');
     const elements: JSX.Element[] = [];
     let currentList: string[] = [];
-    let listType: 'bullet' | 'none' = 'none';
+    // Track list type for proper rendering
+    // let listType: 'bullet' | 'none' = 'none';
     
     const flushList = () => {
       if (currentList.length > 0) {
@@ -70,7 +71,7 @@ export default function FeedbackDisplay({ feedback, onClose }: FeedbackDisplayPr
           </ul>
         );
         currentList = [];
-        listType = 'none';
+        // listType = 'none';
       }
     };
     
@@ -102,7 +103,7 @@ export default function FeedbackDisplay({ feedback, onClose }: FeedbackDisplayPr
       else if (line.startsWith('- ') || line.startsWith('* ') || line.startsWith('• ')) {
         const bulletContent = line.replace(/^[-*•]\s+/, '');
         currentList.push(bulletContent);
-        listType = 'bullet';
+        // listType = 'bullet';
       }
       // Check for bold text lines (lines starting with **)
       else if (line.startsWith('**') && line.endsWith('**') && line.length > 4) {
@@ -118,7 +119,7 @@ export default function FeedbackDisplay({ feedback, onClose }: FeedbackDisplayPr
       else if (line.trim()) {
         flushList();
         // Process inline bold text
-        const processedLine = line.replace(/\*\*(.*?)\*\*/g, (match, p1) => p1);
+        const processedLine = line.replace(/\*\*(.*?)\*\*/g, (_match, p1) => p1);
         elements.push(
           <p key={`p-${index}`} className="text-gray-700 mb-2">
             {processedLine}
