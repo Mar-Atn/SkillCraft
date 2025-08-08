@@ -176,6 +176,12 @@ export default function ScenarioManagement() {
     
     try {
       console.log('💾 ScenarioManagement: Saving scenario via scenarioFileService...');
+      console.log('🔍 Scenario data being saved:', {
+        title: editingScenario.title,
+        assignedCharacterId: editingScenario.assignedCharacterId,
+        assignedCharacterName: editingScenario.assignedCharacterName,
+        fullData: editingScenario
+      });
       
       // Create or update scenario
       let updatedScenarios: Scenario[];
@@ -184,10 +190,12 @@ export default function ScenarioManagement() {
           ...editingScenario,
           id: Math.max(...scenarios.map(s => s.id), 0) + 1
         };
+        console.log('✅ New scenario created with character assignment:', newScenario);
         updatedScenarios = [...scenarios, newScenario];
         setScenarios(updatedScenarios);
       } else {
         const updatedScenario = { ...editingScenario } as Scenario;
+        console.log('✅ Existing scenario updated with character assignment:', updatedScenario);
         updatedScenarios = scenarios.map(s => 
           s.id === editingScenario.id ? updatedScenario : s
         );

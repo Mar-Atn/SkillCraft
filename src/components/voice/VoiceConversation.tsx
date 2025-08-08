@@ -45,9 +45,19 @@ const VoiceConversation: React.FC<ScenarioContextProps> = ({ scenario }) => {
 
   // Load assigned character when scenario changes
   useEffect(() => {
+    console.log('🔍 VoiceConversation scenario debug:', {
+      scenarioTitle: scenario?.title,
+      assignedCharacterId: scenario?.assignedCharacterId,
+      assignedCharacterName: scenario?.assignedCharacterName,
+      hasAssignedCharacter: !!scenario?.assignedCharacterId,
+      fullScenario: scenario
+    });
+    
     if (scenario?.assignedCharacterId) {
+      console.log('✅ Found assignedCharacterId, loading character:', scenario.assignedCharacterId);
       loadAssignedCharacter(scenario.assignedCharacterId);
     } else {
+      console.log('⚠️ No assignedCharacterId found in scenario');
       setAssignedCharacter(null);
     }
   }, [scenario]);
