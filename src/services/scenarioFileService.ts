@@ -2,6 +2,7 @@
 // CONSTITUTIONAL: This bridges existing systems without breaking working code
 
 import type { Scenario } from '../types/scenario';
+import { scenarioService } from './scenarioService';
 
 class ScenarioFileService {
   /**
@@ -111,7 +112,6 @@ ${scenario.debriefingPoints.map(point => `- ${point}`).join('\n')}
    */
   invalidateScenarioCache() {
     // Clear the cache so next load gets fresh data from localStorage
-    const { scenarioService } = require('./scenarioService');
     scenarioService.clearCache();
     console.log('🔄 Invalidated scenario service cache for fresh reload');
   }
