@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import UserHeader from '../../components/layout/UserHeader';
+import { feedbackService } from '../../services/feedbackService';
 
 export default function FeedbackPrompts() {
   const { user } = useAuth();
@@ -36,22 +37,34 @@ export default function FeedbackPrompts() {
 
   const loadCurrentPrompt = async () => {
     try {
-      // Load the current feedback_prompts.md file
-      const response = await fetch('/feedback_prompts.md');
-      if (!response.ok) {
-        throw new Error('Failed to load feedback prompts');
+      // First check if there's a custom prompt saved in localStorage
+      const customSavedPrompt = localStorage.getItem('skillcraft_custom_feedback_prompt');
+      
+      if (customSavedPrompt) {
+        // If custom prompt exists, it's the active one
+        setActivePrompt(customSavedPrompt);
+        setCustomPrompt(customSavedPrompt);
+        setLoading(false);
+        console.log('✅ Loaded custom prompt from localStorage');
+      } else {
+        // Otherwise load the default from file
+        const response = await fetch('/feedback_prompts.md');
+        if (!response.ok) {
+          throw new Error('Failed to load feedback prompts');
+        }
+        
+        const content = await response.text();
+        
+        // Extract the active prompt section (everything under "Default Setting Expectations Prompt")
+        const defaultPromptMatch = content.match(/## Default Setting Expectations Prompt\n\n([\s\S]*?)(?=\n## Alternative Prompts|\n---|\n$)/);
+        if (defaultPromptMatch) {
+          setActivePrompt(defaultPromptMatch[1].trim());
+          setCustomPrompt(defaultPromptMatch[1].trim());
+        }
+        
+        setLoading(false);
+        console.log('✅ Loaded default prompt from file');
       }
-      
-      const content = await response.text();
-      
-      // Extract the active prompt section (everything under "Default Setting Expectations Prompt")
-      const defaultPromptMatch = content.match(/## Default Setting Expectations Prompt\n\n([\s\S]*?)(?=\n## Alternative Prompts|\n---|\n$)/);
-      if (defaultPromptMatch) {
-        setActivePrompt(defaultPromptMatch[1].trim());
-        setCustomPrompt(defaultPromptMatch[1].trim());
-      }
-      
-      setLoading(false);
     } catch (error) {
       console.error('Failed to load feedback prompts:', error);
       setStatus('error');
@@ -64,23 +77,39 @@ export default function FeedbackPrompts() {
     setStatus('idle');
     
     try {
-      // Since we can't directly write to public files from the browser,
-      // we'll save to localStorage and update the service to check there first
-      localStorage.setItem('skillcraft_custom_feedback_prompt', customPrompt);
+      // Check if we're saving the default prompt
+      const response = await fetch('/feedback_prompts.md');
+      const content = await response.text();
+      const defaultPromptMatch = content.match(/## Default Setting Expectations Prompt\n\n([\s\S]*?)(?=\n## Alternative Prompts|\n---|\n$)/);
+      const isDefault = defaultPromptMatch && defaultPromptMatch[1].trim() === customPrompt.trim();
       
-      // Also update AI_feedback.md path via the service
-      const savedData = {
-        prompt: customPrompt,
-        timestamp: new Date().toISOString(),
-        adminId: user?.id
-      };
+      if (isDefault) {
+        // If saving default, remove custom prompt from localStorage
+        localStorage.removeItem('skillcraft_custom_feedback_prompt');
+        localStorage.removeItem('skillcraft_feedback_config');
+        console.log('✅ Reset to default prompt');
+      } else {
+        // Save custom prompt to localStorage
+        localStorage.setItem('skillcraft_custom_feedback_prompt', customPrompt);
+        
+        // Also save metadata
+        const savedData = {
+          prompt: customPrompt,
+          timestamp: new Date().toISOString(),
+          adminId: user?.id
+        };
+        
+        localStorage.setItem('skillcraft_feedback_config', JSON.stringify(savedData));
+        console.log('✅ Custom feedback prompt saved');
+      }
       
-      localStorage.setItem('skillcraft_feedback_config', JSON.stringify(savedData));
+      // Clear the cached prompt in feedback service to force reload
+      feedbackService.clearCachedPrompt();
       
       setActivePrompt(customPrompt);
       setStatus('success');
       
-      console.log('✅ Feedback prompt saved successfully');
+      console.log('✅ Feedback prompt saved successfully and cache cleared');
       
       // Clear success message after 3 seconds
       setTimeout(() => setStatus('idle'), 3000);
@@ -100,7 +129,12 @@ export default function FeedbackPrompts() {
       
       const defaultPromptMatch = content.match(/## Default Setting Expectations Prompt\n\n([\s\S]*?)(?=\n## Alternative Prompts|\n---|\n$)/);
       if (defaultPromptMatch) {
-        setCustomPrompt(defaultPromptMatch[1].trim());
+        const defaultPrompt = defaultPromptMatch[1].trim();
+        setCustomPrompt(defaultPrompt);
+        
+        // If user wants to save this as the active prompt, they need to click Save
+        // Just updating the editor for now
+        console.log('✅ Reset editor to default prompt (not saved yet)');
       }
     } catch (error) {
       console.error('Failed to reset prompt:', error);

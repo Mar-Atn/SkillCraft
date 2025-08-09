@@ -34,21 +34,47 @@ export class FeedbackService {
   private adminPrompt: string | null = null;
 
   /**
-   * Load admin-defined prompt from feedback_prompts.md (RESTORED working pattern)
+   * Clear cached prompt to force reload on next use
+   */
+  clearCachedPrompt(): void {
+    this.adminPrompt = null;
+    console.log('🔄 Cached prompt cleared');
+  }
+
+  /**
+   * Load admin-defined prompt - checks localStorage first, then falls back to file
    */
   async loadAdminPrompt(): Promise<string> {
+    // First check if there's a custom prompt saved in localStorage
+    const customPrompt = localStorage.getItem('skillcraft_custom_feedback_prompt');
+    if (customPrompt) {
+      this.adminPrompt = customPrompt;
+      console.log('✅ Custom admin prompt loaded from localStorage');
+      return this.adminPrompt;
+    }
+
+    // If no custom prompt, check cached prompt
     if (this.adminPrompt) {
       return this.adminPrompt;
     }
 
+    // Load default prompt from file
     try {
       const response = await fetch('/feedback_prompts.md');
       if (!response.ok) {
         throw new Error('Failed to load admin prompt');
       }
       
-      this.adminPrompt = await response.text();
-      console.log('✅ Admin prompt loaded from feedback_prompts.md');
+      const content = await response.text();
+      // Extract the default prompt section
+      const defaultPromptMatch = content.match(/## Default Setting Expectations Prompt\n\n([\s\S]*?)(?=\n## Alternative Prompts|\n---|\n$)/);
+      if (defaultPromptMatch) {
+        this.adminPrompt = defaultPromptMatch[1].trim();
+      } else {
+        this.adminPrompt = content; // Use entire file if no section found
+      }
+      
+      console.log('✅ Default admin prompt loaded from feedback_prompts.md');
       return this.adminPrompt;
     } catch (error) {
       console.error('❌ Failed to load admin prompt:', error);
