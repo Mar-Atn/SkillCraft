@@ -1,6 +1,6 @@
 import React from 'react';
 import { useAuth } from '../../context/AuthContext';
-import LoginForm from './LoginForm';
+import AuthPage from '../../pages/AuthPage';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -22,9 +22,9 @@ export default function ProtectedRoute({ children, requireAdmin = false }: Prote
     );
   }
 
-  // Show login form if not authenticated
+  // Show authentication page if not authenticated
   if (!isAuthenticated) {
-    return <LoginForm />;
+    return <AuthPage />;
   }
 
   // Check admin requirement

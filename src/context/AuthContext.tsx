@@ -1,5 +1,6 @@
 import { createContext, useContext, useReducer, useEffect, ReactNode } from 'react';
 import { userInitService } from '../services/userInitService';
+import { userManagementService } from '../services/userManagementService';
 
 interface User {
   id: string;
@@ -86,17 +87,7 @@ const initialState: AuthState = {
   error: null
 };
 
-// Mock authentication service (PRD requirement: test@test.com and admin@admin.com)
-const mockUsers: Record<string, { password: string; user: User }> = {
-  'test@test.com': {
-    password: 'test',
-    user: { id: 'test-user-1', email: 'test@test.com', firstName: 'Test', lastName: 'User', role: 'user' }
-  },
-  'admin@admin.com': {
-    password: 'admin',
-    user: { id: 'admin-user-1', email: 'admin@admin.com', firstName: 'Admin', lastName: 'User', role: 'admin' }
-  }
-};
+// PRESERVED: Original functionality now enhanced with user management service
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [state, dispatch] = useReducer(authReducer, initialState);
@@ -128,33 +119,39 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     dispatch({ type: 'LOGIN_START' });
     
     try {
-      // Simulate API delay
+      // Simulate API delay to preserve UX timing
       await new Promise(resolve => setTimeout(resolve, 500));
       
-      const mockUser = mockUsers[email];
+      // ENHANCED: Use user management service instead of hardcoded users
+      const authenticatedUser = userManagementService.authenticateUser(email, password);
       
-      if (!mockUser || mockUser.password !== password) {
-        throw new Error('Invalid credentials');
-      }
-
       const accessToken = `mock-jwt-token-${Date.now()}`;
       
-      localStorage.setItem('scsx_accessToken', accessToken);
-      localStorage.setItem('scsx_user', JSON.stringify(mockUser.user));
+      // Convert to AuthContext User format (preserving existing interface)
+      const user: User = {
+        id: authenticatedUser.id,
+        email: authenticatedUser.email,
+        firstName: authenticatedUser.firstName,
+        lastName: authenticatedUser.lastName,
+        role: authenticatedUser.role
+      };
       
-      // Initialize user profile in data service
+      localStorage.setItem('scsx_accessToken', accessToken);
+      localStorage.setItem('scsx_user', JSON.stringify(user));
+      
+      // PRESERVED: Initialize user profile in data service (critical for existing flows)
       userInitService.initializeUser(
-        mockUser.user.id,
-        mockUser.user.email,
-        mockUser.user.firstName,
-        mockUser.user.lastName,
-        mockUser.user.role
+        user.id,
+        user.email,
+        user.firstName,
+        user.lastName,
+        user.role
       );
       
       dispatch({
         type: 'LOGIN_SUCCESS',
         payload: {
-          user: mockUser.user,
+          user,
           accessToken
         }
       });
@@ -167,21 +164,48 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const register = async (email: string, _password: string, _firstName?: string, _lastName?: string) => {
+  const register = async (email: string, password: string, firstName?: string, lastName?: string) => {
     dispatch({ type: 'LOGIN_START' });
     
     try {
-      // Simulate API delay
+      // Simulate API delay to preserve UX timing
       await new Promise(resolve => setTimeout(resolve, 500));
       
-      // Check if user already exists
-      if (mockUsers[email]) {
-        throw new Error('User already exists');
-      }
-
-      // For now, just use mock authentication
-      // In production, this would call a real API
-      throw new Error('Registration not available in mock mode. Please use test@test.com or admin@admin.com');
+      // ENHANCED: Enable real user registration
+      const newUser = userManagementService.registerUser(email, password, firstName, lastName);
+      
+      const accessToken = `mock-jwt-token-${Date.now()}`;
+      
+      // Convert to AuthContext User format (preserving existing interface)
+      const user: User = {
+        id: newUser.id,
+        email: newUser.email,
+        firstName: newUser.firstName,
+        lastName: newUser.lastName,
+        role: newUser.role
+      };
+      
+      localStorage.setItem('scsx_accessToken', accessToken);
+      localStorage.setItem('scsx_user', JSON.stringify(user));
+      
+      // PRESERVED: Initialize user profile in data service (critical for existing flows)
+      userInitService.initializeUser(
+        user.id,
+        user.email,
+        user.firstName,
+        user.lastName,
+        user.role
+      );
+      
+      dispatch({
+        type: 'LOGIN_SUCCESS',
+        payload: {
+          user,
+          accessToken
+        }
+      });
+      
+      console.log('✅ User registered and logged in:', email);
     } catch (error) {
       dispatch({
         type: 'LOGIN_FAILURE',

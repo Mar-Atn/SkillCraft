@@ -4,9 +4,10 @@ import { Mail, Lock, Eye, EyeOff, LogIn } from 'lucide-react';
 
 interface LoginFormProps {
   onSuccess?: () => void;
+  onSwitchToRegister?: () => void;
 }
 
-export default function LoginForm({ onSuccess }: LoginFormProps) {
+export default function LoginForm({ onSuccess, onSwitchToRegister }: LoginFormProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -129,6 +130,19 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
           </div>
           <p className="text-xs text-slate-500 mt-2 text-center">
             For development testing only
+          </p>
+        </div>
+
+        {/* Switch to Register */}
+        <div className="mt-6 pt-6 border-t border-slate-200 text-center">
+          <p className="text-sm text-slate-600">
+            Don't have an account?{' '}
+            <button
+              onClick={onSwitchToRegister}
+              className="text-blue-600 hover:text-blue-800 font-medium transition-colors"
+            >
+              Create one here
+            </button>
           </p>
         </div>
       </div>
