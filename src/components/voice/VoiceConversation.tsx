@@ -133,7 +133,8 @@ const VoiceConversation: React.FC<ScenarioContextProps> = ({ scenario }) => {
     switch (message.type) {
       case 'conversation_initiation_metadata':
         console.log('🎉 ElevenLabs conversation started:', message);
-        addMessage('System', `Connected to ${assignedCharacter?.name || 'AI Character'} - you can begin speaking`);
+        // Don't show system message in simplified UI
+        // addMessage('System', `Connected to ${assignedCharacter?.name || 'AI Character'} - you can begin speaking`);
         updateStatus('Connected - Start speaking!', 'listening');
         break;
         
@@ -143,7 +144,8 @@ const VoiceConversation: React.FC<ScenarioContextProps> = ({ scenario }) => {
         // Check if this contains the actual initiation metadata
         if (message.message && message.message.type === 'conversation_initiation_metadata') {
           console.log('🎉 Found conversation initiation in client data!');
-          addMessage('System', `Connected to ${assignedCharacter?.name || 'AI Character'} - you can begin speaking`);
+          // Don't show system message in simplified UI
+          // addMessage('System', `Connected to ${assignedCharacter?.name || 'AI Character'} - you can begin speaking`);
           updateStatus('Connected - Start speaking!', 'listening');
         }
         break;
@@ -342,10 +344,11 @@ CORE BEHAVIORS:
       
       const sessionResult = await conversation.startSession(sessionConfig);
       
-      // Set a timeout to show ready message if initiation metadata doesn't come
+      // Set a timeout to update status if initiation metadata doesn't come
       setTimeout(() => {
-        console.log('🕐 Timeout reached, showing ready message as fallback');
-        addMessage('System', `Connected to ${assignedCharacter?.name || 'AI Character'} - you can begin speaking`);
+        console.log('🕐 Timeout reached, updating status as fallback');
+        // Don't show system message in simplified UI
+        // addMessage('System', `Connected to ${assignedCharacter?.name || 'AI Character'} - you can begin speaking`);
         updateStatus('Ready - Start speaking!', 'listening');
       }, 3000);
       
@@ -589,8 +592,9 @@ CORE BEHAVIORS:
         }
       } else {
         console.warn('⚠️ No conversation ID available for transcript');
-        addMessage('System', 'Conversation completed but no ID for transcript');
-        updateStatus('Conversation complete', 'success');
+        // Don't show system message in simplified UI
+        // addMessage('System', 'Conversation completed but no ID for transcript');
+        updateStatus('Processing conversation...', 'processing');
       }
       
     } catch (error: any) {
@@ -631,59 +635,37 @@ CORE BEHAVIORS:
           )}
         </div>
       ) : (
-        /* Show full conversation UI once started */
-        <>
-          <div className="mb-4">
-            <h2 className="text-xl font-bold text-gray-800 mb-2">Voice Conversation</h2>
-            <div className={`p-3 rounded-lg font-medium ${
-              statusType === 'connected' ? 'bg-green-50 text-green-700 border border-green-200' :
-              statusType === 'listening' ? 'bg-yellow-50 text-yellow-700 border border-yellow-200' :
-              statusType === 'speaking' ? 'bg-blue-50 text-blue-700 border border-blue-200' :
-              statusType === 'error' ? 'bg-red-50 text-red-700 border border-red-200' :
-              'bg-gray-50 text-gray-700 border border-gray-200'
+        /* Show minimal conversation UI once started */
+        <div className="text-center py-12">
+          {/* Simple status display */}
+          <div className="mb-8">
+            <p className={`text-lg font-medium ${
+              statusType === 'connected' || statusType === 'listening' ? 'text-green-600' :
+              statusType === 'error' ? 'text-red-600' :
+              'text-gray-600'
             }`}>
               {status}
-            </div>
+            </p>
           </div>
 
-          {/* Show character name when conversation is active */}
-          {isActive && assignedCharacter && (
-            <div className="mb-4 text-center">
-              <p className="text-gray-600">Speaking with: <span className="font-semibold">{assignedCharacter.name}</span></p>
+          {/* End Conversation button */}
+          {isActive && (
+            <button 
+              onClick={stop}
+              className="bg-red-600 hover:bg-red-700 text-white px-8 py-4 rounded-lg font-medium text-lg transition-colors shadow-lg"
+            >
+              End Conversation
+            </button>
+          )}
+          
+          {/* Processing message after conversation ends */}
+          {!isActive && messages.length > 0 && (
+            <div className="mt-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+              <p className="text-gray-600">Processing your conversation...</p>
             </div>
           )}
-
-          <div className="flex justify-center mb-6">
-            {isActive && (
-              <button 
-                onClick={stop}
-                className="bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-lg font-medium transition-colors"
-              >
-                End Conversation
-              </button>
-            )}
-          </div>
-
-          <div className="space-y-3 max-h-96 overflow-y-auto">
-            {messages.map(({ speaker, text, id }) => (
-              <div key={id} className={`p-3 rounded-lg ${
-                speaker === 'You' 
-                  ? 'bg-blue-50 ml-8 border-l-4 border-blue-400' 
-                  : speaker === 'System'
-                  ? 'bg-green-50 border-l-4 border-green-400'
-                  : 'bg-gray-50 mr-8 border-l-4 border-gray-400'
-              }`}>
-                <div className="font-medium text-sm text-gray-600 mb-1">{speaker}</div>
-                <div>{text}</div>
-              </div>
-            ))}
-            {messages.length === 0 && (
-              <div className="text-center text-gray-500 py-8">
-                Conversation is starting...
-              </div>
-            )}
-          </div>
-        </>
+        </div>
       )}
       
       {/* Feedback Display Modal */}
