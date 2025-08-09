@@ -7,7 +7,6 @@ import { ratingService } from '../../services/ratingService';
 import { userDataService } from '../../services/userDataService';
 import { characterService, type Character } from '../../services/characterService';
 import { useAuth } from '../../context/AuthContext';
-import FeedbackDisplay from '../FeedbackDisplay';
 import type { Conversation, ConversationFeedback } from '../../types/user-data';
 
 interface Message {
@@ -40,8 +39,55 @@ const VoiceConversation: React.FC<ScenarioContextProps> = ({ scenario }) => {
   const [conversationStartTime, setConversationStartTime] = useState<Date | null>(null);
   const [assignedCharacter, setAssignedCharacter] = useState<Character | null>(null);
   const [loadingCharacter, setLoadingCharacter] = useState(false);
+  const [viewMode, setViewMode] = useState<'conversation' | 'processing' | 'feedback' | 'transcript'>('conversation');
+  const [fullTranscript, setFullTranscript] = useState<Array<{role: string, message: string}>>([]);
   
   const { user } = useAuth();
+
+  // Helper function to format markdown-like text to HTML
+  const formatMarkdown = (text: string) => {
+    if (!text) return '';
+    
+    // Split by lines to handle headers and bullets
+    const lines = text.split('\n');
+    const formattedLines = lines.map(line => {
+      // Handle headers
+      if (line.startsWith('### ')) {
+        return `<h4 class="font-semibold text-lg text-gray-800 mt-4 mb-2">${line.substring(4)}</h4>`;
+      }
+      if (line.startsWith('## ')) {
+        return `<h3 class="font-bold text-xl text-gray-900 mt-4 mb-3">${line.substring(3)}</h3>`;
+      }
+      if (line.startsWith('# ')) {
+        return `<h2 class="font-bold text-2xl text-gray-900 mt-4 mb-3">${line.substring(2)}</h2>`;
+      }
+      
+      // Handle bullet points - but also process the content for bold/italic
+      if (line.startsWith('- ') || line.startsWith('* ')) {
+        let bulletContent = line.substring(2);
+        // Process bold text in bullet content
+        bulletContent = bulletContent.replace(/\*\*(.*?)\*\*/g, '<strong class="font-bold text-gray-900">$1</strong>');
+        // Process italic text in bullet content
+        bulletContent = bulletContent.replace(/(?<!\*)\*(?!\*)([^*]+)\*(?!\*)/g, '<em>$1</em>');
+        return `<li class="ml-4 text-gray-700">${bulletContent}</li>`;
+      }
+      
+      // Handle bold text FIRST (must be before single asterisk)
+      let formattedLine = line.replace(/\*\*(.*?)\*\*/g, '<strong class="font-bold text-gray-900">$1</strong>');
+      
+      // Handle italic text AFTER bold (single asterisk)
+      formattedLine = formattedLine.replace(/(?<!\*)\*(?!\*)([^*]+)\*(?!\*)/g, '<em>$1</em>');
+      
+      // Return as paragraph if it has content
+      if (formattedLine.trim()) {
+        return `<p class="text-gray-700 mb-2">${formattedLine}</p>`;
+      }
+      
+      return '';
+    });
+    
+    return formattedLines.join('');
+  };
 
   // Load assigned character when scenario changes (ONCE per scenario)
   useEffect(() => {
@@ -383,8 +429,9 @@ CORE BEHAVIORS:
   const stop = async () => {
     try {
       await conversation.endSession();
-      updateStatus('Processing conversation...', 'processing');
+      updateStatus('Fetching transcripts...', 'processing');
       setIsActive(false);
+      setViewMode('processing');
       
       console.log('💬 Conversation completed successfully');
       console.log('Messages captured during conversation:', messages.length);
@@ -400,6 +447,9 @@ CORE BEHAVIORS:
           if (conversationData && conversationData.transcript && conversationData.transcript.length > 0) {
             console.log('✅ Transcript fetched successfully:', conversationData.transcript.length, 'messages');
             
+            // Store the full transcript for later viewing
+            setFullTranscript(conversationData.transcript);
+            
             // Convert transcript to our message format for display
             const transcriptMessages = conversationData.transcript.map((msg: any) => ({
               speaker: msg.role === 'user' ? 'You' : (assignedCharacter?.name || 'AI Assistant'),
@@ -407,13 +457,14 @@ CORE BEHAVIORS:
               id: Date.now() + Math.random()
             }));
             
-            // Update messages with transcript
+            // Update messages with transcript (keep for internal use, not displayed in simplified UI)
             setMessages(transcriptMessages);
-            addMessage('System', `📄 Transcript loaded: ${conversationData.transcript.length} messages`);
+            // Don't show system message in simplified UI
+            // addMessage('System', `📄 Transcript loaded: ${conversationData.transcript.length} messages`);
             
             // Generate AI feedback from transcript
             console.log('🤖 Generating AI feedback from transcript...');
-            updateStatus('Generating personalized feedback...', 'processing');
+            updateStatus('Generating feedback...', 'processing');
             
             const feedback = await feedbackService.generateFeedback(conversationData.transcript);
             
@@ -483,10 +534,10 @@ CORE BEHAVIORS:
                 }
               }
               
-              // Set feedback data and show modal
+              // Set feedback data and switch to feedback view
               setFeedbackData(feedbackWithRating);
-              setShowFeedback(true);
-              updateStatus('Conversation complete! Review your feedback.', 'success');
+              setViewMode('feedback');
+              updateStatus('Feedback ready!', 'success');
             } else {
               console.warn('⚠️ No scores in feedback');
               updateStatus('Conversation complete', 'success');
@@ -515,6 +566,9 @@ CORE BEHAVIORS:
               
             if (fallbackTranscript.length > 0) {
               console.log('🤖 Generating feedback from local messages...');
+              
+              // Store the fallback transcript for viewing
+              setFullTranscript(fallbackTranscript);
               updateStatus('Generating feedback from conversation...', 'processing');
               
               try {
@@ -575,7 +629,7 @@ CORE BEHAVIORS:
                   }
                   
                   setFeedbackData(feedbackWithRating);
-                  setShowFeedback(true);
+                  setViewMode('feedback');
                   updateStatus('Feedback ready!', 'success');
                   
                 } else {
@@ -605,8 +659,8 @@ CORE BEHAVIORS:
 
   return (
     <div className="bg-white rounded-lg border p-6">
-      {/* Show simplified UI before conversation starts */}
-      {!isActive && messages.length === 0 ? (
+      {/* Show different UI based on current view mode */}
+      {viewMode === 'conversation' && !isActive && messages.length === 0 ? (
         <div className="text-center py-12">
           {loadingCharacter ? (
             <div className="text-gray-600">
@@ -634,10 +688,9 @@ CORE BEHAVIORS:
             </div>
           )}
         </div>
-      ) : (
-        /* Show minimal conversation UI once started */
+      ) : viewMode === 'conversation' && isActive ? (
+        /* Show minimal UI during active conversation */
         <div className="text-center py-12">
-          {/* Simple status display */}
           <div className="mb-8">
             <p className={`text-lg font-medium ${
               statusType === 'connected' || statusType === 'listening' ? 'text-green-600' :
@@ -647,37 +700,158 @@ CORE BEHAVIORS:
               {status}
             </p>
           </div>
-
-          {/* End Conversation button */}
-          {isActive && (
-            <button 
-              onClick={stop}
-              className="bg-red-600 hover:bg-red-700 text-white px-8 py-4 rounded-lg font-medium text-lg transition-colors shadow-lg"
-            >
-              End Conversation
-            </button>
-          )}
+          <button 
+            onClick={stop}
+            className="bg-red-600 hover:bg-red-700 text-white px-8 py-4 rounded-lg font-medium text-lg transition-colors shadow-lg"
+          >
+            End Conversation
+          </button>
+        </div>
+      ) : viewMode === 'processing' ? (
+        /* Show processing status */
+        <div className="text-center py-12">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-lg text-gray-600">{status}</p>
+        </div>
+      ) : viewMode === 'feedback' && feedbackData ? (
+        /* Show comprehensive feedback inline */
+        <div className="space-y-6">
+          <h2 className="text-2xl font-bold text-center text-gray-800">Conversation Feedback</h2>
           
-          {/* Processing message after conversation ends */}
-          {!isActive && messages.length > 0 && (
-            <div className="mt-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
-              <p className="text-gray-600">Processing your conversation...</p>
+          {/* Rating Progress if available */}
+          {feedbackData.previousRating !== undefined && feedbackData.newRating !== undefined && (
+            <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg p-4 border border-blue-200">
+              <h3 className="font-semibold text-blue-900 mb-2">Your Progress</h3>
+              <div className="flex items-center justify-between">
+                <div className="text-center">
+                  <p className="text-sm text-gray-600">Previous Rating</p>
+                  <p className="text-2xl font-bold text-gray-800">{feedbackData.previousRating.toFixed(1)}</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-lg">→</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-sm text-gray-600">New Rating</p>
+                  <p className="text-2xl font-bold text-blue-600">{feedbackData.newRating.toFixed(1)}</p>
+                </div>
+                {feedbackData.skillLevel && (
+                  <div className="text-center">
+                    <p className="text-sm text-gray-600">Skill Level</p>
+                    <p className="text-lg font-semibold text-purple-600">{feedbackData.skillLevel}</p>
+                  </div>
+                )}
+              </div>
             </div>
           )}
+          
+          {/* Comprehensive Scores */}
+          {feedbackData.scores && (
+            <div className="bg-blue-50 rounded-lg p-4">
+              <h3 className="font-semibold text-blue-900 mb-4">Performance Scores</h3>
+              
+              {/* Overall Score - Prominent Display */}
+              <div className="text-center mb-6 p-4 bg-white rounded-lg">
+                <p className="text-lg text-gray-600 mb-2">Overall Score</p>
+                <p className="text-5xl font-bold text-blue-600">{feedbackData.scores.overall_score}</p>
+                <p className="text-lg text-gray-600">/100</p>
+              </div>
+              
+              {/* Sub-skills Scores */}
+              {feedbackData.scores.sub_skills && (
+                <div className="space-y-3">
+                  <h4 className="font-medium text-gray-700 mb-2">Detailed Skill Breakdown:</h4>
+                  
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center p-2 bg-white rounded">
+                      <span className="text-sm text-gray-700">Clarity and Specificity</span>
+                      <span className="font-bold text-blue-600">{feedbackData.scores.sub_skills.clarity_and_specificity}/100</span>
+                    </div>
+                    
+                    <div className="flex justify-between items-center p-2 bg-white rounded">
+                      <span className="text-sm text-gray-700">Mutual Understanding</span>
+                      <span className="font-bold text-blue-600">{feedbackData.scores.sub_skills.mutual_understanding}/100</span>
+                    </div>
+                    
+                    <div className="flex justify-between items-center p-2 bg-white rounded">
+                      <span className="text-sm text-gray-700">Proactive Problem Solving</span>
+                      <span className="font-bold text-blue-600">{feedbackData.scores.sub_skills.proactive_problem_solving}/100</span>
+                    </div>
+                    
+                    <div className="flex justify-between items-center p-2 bg-white rounded">
+                      <span className="text-sm text-gray-700">Appropriate Customization</span>
+                      <span className="font-bold text-blue-600">{feedbackData.scores.sub_skills.appropriate_customization}/100</span>
+                    </div>
+                    
+                    <div className="flex justify-between items-center p-2 bg-white rounded">
+                      <span className="text-sm text-gray-700">Documentation and Verification</span>
+                      <span className="font-bold text-blue-600">{feedbackData.scores.sub_skills.documentation_and_verification}/100</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Overall Assessment */}
+          {feedbackData.overallAssessment && (
+            <div className="bg-gray-50 rounded-lg p-4">
+              <h3 className="font-semibold text-gray-900 mb-2">Overall Assessment</h3>
+              <p className="text-gray-700">{feedbackData.overallAssessment}</p>
+            </div>
+          )}
+
+          {/* Full AI-Generated Feedback Text with Markdown Formatting */}
+          {feedbackData.rawResponse && (
+            <div className="bg-gray-50 rounded-lg p-4">
+              <h3 className="font-semibold text-gray-900 mb-3">Detailed AI Feedback</h3>
+              <div 
+                className="prose prose-sm max-w-none"
+                dangerouslySetInnerHTML={{ __html: formatMarkdown(feedbackData.rawResponse) }}
+              />
+            </div>
+          )}
+
+          {/* Button to show transcript */}
+          <div className="text-center pt-4">
+            <button
+              onClick={() => setViewMode('transcript')}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium transition-colors"
+            >
+              Show Full Transcript
+            </button>
+          </div>
         </div>
-      )}
-      
-      {/* Feedback Display Modal */}
-      {showFeedback && feedbackData && (
-        <FeedbackDisplay 
-          feedback={feedbackData} 
-          onClose={() => {
-            setShowFeedback(false);
-            setFeedbackData(null);
-          }} 
-        />
-      )}
+      ) : viewMode === 'transcript' ? (
+        /* Show transcript */
+        <div className="space-y-4">
+          <h2 className="text-2xl font-bold text-center text-gray-800">Conversation Transcript</h2>
+          
+          <div className="space-y-3 max-h-96 overflow-y-auto">
+            {fullTranscript.map((msg, index) => (
+              <div key={index} className={`p-3 rounded-lg ${
+                msg.role === 'user' 
+                  ? 'bg-blue-50 ml-8 border-l-4 border-blue-400' 
+                  : 'bg-gray-50 mr-8 border-l-4 border-gray-400'
+              }`}>
+                <div className="font-medium text-sm text-gray-600 mb-1">
+                  {msg.role === 'user' ? 'You' : assignedCharacter?.name || 'AI Assistant'}
+                </div>
+                <div>{msg.message}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Button to show feedback */}
+          <div className="text-center pt-4">
+            <button
+              onClick={() => setViewMode('feedback')}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-medium transition-colors"
+            >
+              Show Feedback
+            </button>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 };
