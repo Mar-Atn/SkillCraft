@@ -251,5 +251,6 @@ class UserManagementService {
   }
 }
 
-// Export singleton instance
+// Export singleton instance and User interface
+export { User };
 export const userManagementService = new UserManagementService();

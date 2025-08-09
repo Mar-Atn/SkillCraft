@@ -11,6 +11,7 @@ import FeedbackPrompts from './pages/admin/FeedbackPrompts'
 import Analytics from './pages/admin/Analytics'
 import UserHistory from './pages/UserHistory'
 import UserProgress from './pages/UserProgress'
+import UserManagement from './pages/UserManagement'
 
 function App() {
   return (
@@ -66,6 +67,11 @@ function App() {
             <Route path="/admin/analytics" element={
               <ProtectedRoute requireAdmin={true}>
                 <Analytics />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/users" element={
+              <ProtectedRoute requireAdmin={true}>
+                <UserManagement />
               </ProtectedRoute>
             } />
           </Routes>
