@@ -601,81 +601,90 @@ CORE BEHAVIORS:
 
   return (
     <div className="bg-white rounded-lg border p-6">
-      <div className="mb-4">
-        <h2 className="text-xl font-bold text-gray-800 mb-2">Voice Conversation</h2>
-        <div className={`p-3 rounded-lg font-medium ${
-          statusType === 'connected' ? 'bg-green-50 text-green-700 border border-green-200' :
-          statusType === 'listening' ? 'bg-yellow-50 text-yellow-700 border border-yellow-200' :
-          statusType === 'speaking' ? 'bg-blue-50 text-blue-700 border border-blue-200' :
-          statusType === 'error' ? 'bg-red-50 text-red-700 border border-red-200' :
-          'bg-gray-50 text-gray-700 border border-gray-200'
-        }`}>
-          {status}
-        </div>
-      </div>
-
-      {/* Character & Agent Info Display */}
-      {assignedCharacter ? (
-        <div className="mb-6 p-4 bg-blue-50 rounded-lg border-l-4 border-blue-400">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold">
-              {assignedCharacter.name.charAt(0)}
+      {/* Show simplified UI before conversation starts */}
+      {!isActive && messages.length === 0 ? (
+        <div className="text-center py-12">
+          {loadingCharacter ? (
+            <div className="text-gray-600">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+              <p>Loading character information...</p>
             </div>
-            <div>
-              <h3 className="font-semibold text-blue-900">Speaking with: {assignedCharacter.name}</h3>
-              <p className="text-blue-700 text-sm">{assignedCharacter.personalContext}</p>
-            </div>
-          </div>
-          {assignedCharacter.elevenLabsAgentId && (
-            <div className="text-xs text-blue-600 font-mono bg-blue-100 px-2 py-1 rounded mt-2">
-              ElevenLabs Agent: {assignedCharacter.elevenLabsAgentName || 'Unknown'} ({assignedCharacter.elevenLabsAgentId})
+          ) : assignedCharacter ? (
+            <>
+              <h2 className="text-2xl font-semibold text-gray-800 mb-8">
+                You will be talking to: {assignedCharacter.name}
+              </h2>
+              <button 
+                onClick={start}
+                className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-lg font-medium text-lg transition-colors shadow-lg"
+              >
+                Start Conversation!
+              </button>
+              <p className="text-gray-600 mt-8">
+                Press start conversation when you are ready!
+              </p>
+            </>
+          ) : (
+            <div className="text-yellow-700">
+              <p>No character assigned to this scenario</p>
             </div>
           )}
         </div>
       ) : (
-        <div className="mb-6 p-4 bg-yellow-50 rounded-lg border-l-4 border-yellow-400">
-          <p className="text-yellow-800 font-medium">No character assigned to this scenario</p>
-          <p className="text-yellow-700 text-sm">Using default voice agent</p>
-        </div>
+        /* Show full conversation UI once started */
+        <>
+          <div className="mb-4">
+            <h2 className="text-xl font-bold text-gray-800 mb-2">Voice Conversation</h2>
+            <div className={`p-3 rounded-lg font-medium ${
+              statusType === 'connected' ? 'bg-green-50 text-green-700 border border-green-200' :
+              statusType === 'listening' ? 'bg-yellow-50 text-yellow-700 border border-yellow-200' :
+              statusType === 'speaking' ? 'bg-blue-50 text-blue-700 border border-blue-200' :
+              statusType === 'error' ? 'bg-red-50 text-red-700 border border-red-200' :
+              'bg-gray-50 text-gray-700 border border-gray-200'
+            }`}>
+              {status}
+            </div>
+          </div>
+
+          {/* Show character name when conversation is active */}
+          {isActive && assignedCharacter && (
+            <div className="mb-4 text-center">
+              <p className="text-gray-600">Speaking with: <span className="font-semibold">{assignedCharacter.name}</span></p>
+            </div>
+          )}
+
+          <div className="flex justify-center mb-6">
+            {isActive && (
+              <button 
+                onClick={stop}
+                className="bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-lg font-medium transition-colors"
+              >
+                End Conversation
+              </button>
+            )}
+          </div>
+
+          <div className="space-y-3 max-h-96 overflow-y-auto">
+            {messages.map(({ speaker, text, id }) => (
+              <div key={id} className={`p-3 rounded-lg ${
+                speaker === 'You' 
+                  ? 'bg-blue-50 ml-8 border-l-4 border-blue-400' 
+                  : speaker === 'System'
+                  ? 'bg-green-50 border-l-4 border-green-400'
+                  : 'bg-gray-50 mr-8 border-l-4 border-gray-400'
+              }`}>
+                <div className="font-medium text-sm text-gray-600 mb-1">{speaker}</div>
+                <div>{text}</div>
+              </div>
+            ))}
+            {messages.length === 0 && (
+              <div className="text-center text-gray-500 py-8">
+                Conversation is starting...
+              </div>
+            )}
+          </div>
+        </>
       )}
-
-      <div className="flex justify-center mb-6">
-        {!isActive ? (
-          <button 
-            onClick={start}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium transition-colors"
-          >
-            Start Conversation
-          </button>
-        ) : (
-          <button 
-            onClick={stop}
-            className="bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-lg font-medium transition-colors"
-          >
-            End Conversation
-          </button>
-        )}
-      </div>
-
-      <div className="space-y-3 max-h-96 overflow-y-auto">
-        {messages.map(({ speaker, text, id }) => (
-          <div key={id} className={`p-3 rounded-lg ${
-            speaker === 'You' 
-              ? 'bg-blue-50 ml-8 border-l-4 border-blue-400' 
-              : speaker === 'System'
-              ? 'bg-green-50 border-l-4 border-green-400'
-              : 'bg-gray-50 mr-8 border-l-4 border-gray-400'
-          }`}>
-            <div className="font-medium text-sm text-gray-600 mb-1">{speaker}</div>
-            <div>{text}</div>
-          </div>
-        ))}
-        {messages.length === 0 && (
-          <div className="text-center text-gray-500 py-8">
-            No messages yet. Start a conversation to begin practicing!
-          </div>
-        )}
-      </div>
       
       {/* Feedback Display Modal */}
       {showFeedback && feedbackData && (
