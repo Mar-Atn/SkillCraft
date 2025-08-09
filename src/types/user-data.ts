@@ -10,7 +10,7 @@ export interface Conversation {
   startedAt: Date;
   completedAt?: Date;
   duration?: number; // in seconds
-  transcriptText?: string;
+  transcript?: Array<{role: string, message: string, timestamp?: string}>; // Full structured transcript
   elevenLabsConversationId?: string;
 }
 
@@ -18,6 +18,7 @@ export interface ConversationFeedback {
   id: string;
   conversationId: string;
   userId: string;
+  scenarioId: string;
   // PRD 5 criteria scores (0-100)
   overall_score: number;
   clarity_and_specificity: number;
@@ -25,9 +26,11 @@ export interface ConversationFeedback {
   proactive_problem_solving: number;
   appropriate_customization: number;
   documentation_and_verification: number;
-  // Feedback text
-  feedback_text: string;
-  ai_model_used: string;
+  // Detailed feedback sections
+  strengths: string[];
+  areasForImprovement: string[];
+  recommendations: string[];
+  rawFeedback: string; // Complete AI-generated feedback with markdown
   created_at: Date;
 }
 

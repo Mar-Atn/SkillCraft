@@ -48,8 +48,11 @@ const VoiceConversation: React.FC<ScenarioContextProps> = ({ scenario }) => {
   const formatMarkdown = (text: string) => {
     if (!text) return '';
     
+    // Remove JSON code blocks from the text
+    let cleanText = text.replace(/```json[\s\S]*?```/g, '').trim();
+    
     // Split by lines to handle headers and bullets
-    const lines = text.split('\n');
+    const lines = cleanText.split('\n');
     const formattedLines = lines.map(line => {
       // Handle headers
       if (line.startsWith('### ')) {
@@ -524,13 +527,15 @@ CORE BEHAVIORS:
                   
                 userDataService.saveFeedback(conversationFeedback);
                 
-                // Update conversation status
+                // Update conversation status with transcript
                 const conversations = userDataService.getConversations(user.id);
                 const conversation = conversations.find(c => c.id === conversationId);
                 if (conversation) {
                   conversation.status = 'completed';
                   conversation.completedAt = new Date();
+                  conversation.transcript = conversationData.transcript; // Save the full transcript
                   userDataService.saveConversation(conversation);
+                  console.log('✅ Conversation saved with transcript:', conversation.transcript.length, 'messages');
                 }
               }
               
@@ -618,13 +623,15 @@ CORE BEHAVIORS:
                       
                     userDataService.saveFeedback(conversationFeedback);
                     
-                    // Update conversation status  
+                    // Update conversation status with fallback transcript
                     const conversations = userDataService.getConversations(user.id);
                     const conversation = conversations.find(c => c.id === conversationId);
                     if (conversation) {
                       conversation.status = 'completed';
                       conversation.completedAt = new Date();
+                      conversation.transcript = fallbackTranscript; // Save the fallback transcript
                       userDataService.saveConversation(conversation);
+                      console.log('✅ Conversation saved with fallback transcript:', conversation.transcript.length, 'messages');
                     }
                   }
                   

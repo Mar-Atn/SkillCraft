@@ -283,7 +283,7 @@ export default function Dashboard() {
 
           <button 
             className="bg-white rounded-xl shadow-lg p-6 text-left hover:shadow-xl transition-shadow group"
-            onClick={() => console.log('View past conversations')}
+            onClick={() => navigate('/history')}
           >
             <MessageSquare className="w-8 h-8 text-green-600 mb-3 group-hover:scale-110 transition-transform" />
             <h3 className="font-bold text-slate-900 mb-2">Past Conversations</h3>
