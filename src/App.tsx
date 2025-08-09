@@ -10,6 +10,7 @@ import CharacterManagement from './pages/admin/CharacterManagement'
 import FeedbackPrompts from './pages/admin/FeedbackPrompts'
 import Analytics from './pages/admin/Analytics'
 import UserHistory from './pages/UserHistory'
+import UserProgress from './pages/UserProgress'
 
 function App() {
   return (
@@ -35,6 +36,11 @@ function App() {
             <Route path="/history" element={
               <ProtectedRoute>
                 <UserHistory />
+              </ProtectedRoute>
+            } />
+            <Route path="/progress" element={
+              <ProtectedRoute>
+                <UserProgress />
               </ProtectedRoute>
             } />
             <Route path="/admin" element={
