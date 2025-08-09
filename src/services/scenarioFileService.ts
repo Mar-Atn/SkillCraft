@@ -110,8 +110,10 @@ ${scenario.debriefingPoints.map(point => `- ${point}`).join('\n')}
    * INTEGRATION: Allows scenarioService to see new scenarios
    */
   invalidateScenarioCache() {
-    // This will be called after saving to ensure fresh data
-    console.log('🔄 Invalidating scenario service cache for fresh reload');
+    // Clear the cache so next load gets fresh data from localStorage
+    const { scenarioService } = require('./scenarioService');
+    scenarioService.clearCache();
+    console.log('🔄 Invalidated scenario service cache for fresh reload');
   }
 }
 
